@@ -167,6 +167,9 @@
     }
 
     function navItems() {
+        if (state.mode === 'admin' || state.mode === 'create') {
+            return [['admin', 'Booth Admin', icons.admin]];
+        }
         const items = [
             ['now', 'Now Playing', icons.now],
             ['queue', 'Queue', icons.queue],
@@ -174,8 +177,12 @@
             ['playlists', 'Playlists', icons.playlists],
             ['mixer', 'Mixer', icons.mixer],
         ];
-        if (state.isAdmin || state.mode === 'admin') items.push(['admin', 'Booth Admin', icons.admin]);
+        if (state.isAdmin) items.push(['admin', 'Booth Admin', icons.admin]);
         return items;
+    }
+
+    function trackCount(n) {
+        return `${n} track${n === 1 ? '' : 's'}`;
     }
 
     function renderNav() {
@@ -184,6 +191,10 @@
         )).join('');
         $('nav').querySelectorAll('button').forEach((btn) => {
             btn.addEventListener('click', () => {
+                if (btn.dataset.tab === 'admin' && state.mode !== 'admin' && state.mode !== 'create') {
+                    nui('refreshAdmin');
+                    return;
+                }
                 state.tab = btn.dataset.tab;
                 render();
             });
@@ -294,7 +305,7 @@
                 <div>
                     <p class="eyebrow">Set list</p>
                     <h1>Queue</h1>
-                    <p>${state.playback.queue.length} upcoming track${state.playback.queue.length === 1 ? '' : 's'}</p>
+                    <p>${trackCount(state.playback.queue.length)} upcoming</p>
                 </div>
                 <button class="btn btn-danger" id="clearQueue">Clear</button>
             </div>
@@ -332,7 +343,7 @@
                         <div>
                             <p class="eyebrow">Playlist</p>
                             <h1>${esc(pl.name)}</h1>
-                            <p>${pl.tracks.length} tracks</p>
+                            <p>${trackCount(pl.tracks.length)}</p>
                         </div>
                         <div class="chips">
                             <button class="btn btn-ghost" id="backPlaylists">Back</button>
@@ -371,7 +382,7 @@
                     <article class="card">
                         ${cover(p.tracks[0] || { title: p.name })}
                         <h3>${esc(p.name)}</h3>
-                        <p>${p.tracks.length} tracks</p>
+                        <p>${trackCount(p.tracks.length)}</p>
                         <div class="chips">
                             <button class="btn btn-sm btn-ghost" data-open="${esc(p.id)}">Open</button>
                             <button class="btn btn-sm btn-primary" data-play="${esc(p.id)}">Play</button>
@@ -809,16 +820,31 @@
 
     if (!isFiveM) {
         showStage();
-        $('previewBar').querySelector('button').classList.add('active');
-        applyBoothPayload({
-            appName: 'Lumina',
-            appTagline: 'Live Booth OS',
-            booth: PREVIEW.booth,
-            state: PREVIEW.playback,
-            songs: PREVIEW.songs,
-            playlists: PREVIEW.playlists,
-            isAdmin: true,
-            playerName: 'Diesel',
+        const view = new URLSearchParams(location.search).get('view') || 'booth';
+        $('previewBar').querySelectorAll('button').forEach((b) => {
+            b.classList.toggle('active', b.dataset.preview === view);
         });
+        if (view === 'admin') {
+            applyAdmin({ appName: 'Lumina', booths: PREVIEW.booths, models: PREVIEW.models });
+        } else if (view === 'create') {
+            state.mode = 'create';
+            state.draft = { coords: { x: 1, y: 2, z: 3 }, heading: 90, model: 'prop_speaker_07' };
+            state.tab = 'create';
+            showStage();
+            render();
+        } else {
+            applyBoothPayload({
+                appName: 'Lumina',
+                appTagline: 'Live Booth OS',
+                booth: PREVIEW.booth,
+                state: PREVIEW.playback,
+                songs: PREVIEW.songs,
+                playlists: PREVIEW.playlists,
+                isAdmin: true,
+                playerName: 'Diesel',
+            });
+            if (view && view !== 'booth') state.tab = view;
+            render();
+        }
     }
 })();
