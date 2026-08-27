@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumina DJ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@320;400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+    <div class="stage" id="stage" hidden>
+        <div class="preview-bar" id="previewBar" hidden>
+            <button data-preview="booth">DJ Booth</button>
+            <button data-preview="admin">Admin</button>
+            <button data-preview="create">Place Wizard</button>
+        </div>
+
+        <div class="tablet" id="tablet">
+            <div class="bezel">
+                <div class="notch">
+                    <span class="cam"></span>
+                    <span class="mic"></span>
+                </div>
+                <div class="screen" id="screen">
+                    <header class="status">
+                        <span id="clock">12:40</span>
+                        <span class="status-pills">
+                            <span>5G</span>
+                            <span class="battery">87%</span>
+                        </span>
+                    </header>
+
+                    <div class="app" id="app">
+                        <aside class="sidebar">
+                            <div class="brand">
+                                <div class="logo" aria-hidden="true">
+                                    <span></span><span></span><span></span>
+                                </div>
+                                <div>
+                                    <strong id="appName">Lumina</strong>
+                                    <small id="appTag">Live Booth OS</small>
+                                </div>
+                            </div>
+
+                            <nav class="nav" id="nav"></nav>
+
+                            <div class="sidebar-card" id="boothChip">
+                                <p class="eyebrow">Active booth</p>
+                                <h3 id="boothName">—</h3>
+                                <p id="boothMeta">No signal</p>
+                            </div>
+                        </aside>
+
+                        <main class="main">
+                            <section class="page" id="page"></section>
+                            <footer class="player" id="player"></footer>
+                        </main>
+                    </div>
+
+                    <div class="home-bar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-root" id="modalRoot"></div>
+    <script src="js/app.js"></script>
+</body>
+</html>
