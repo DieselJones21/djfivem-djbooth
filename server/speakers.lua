@@ -201,10 +201,62 @@ local function playOnGroup(groupId, track)
     state.playing = true
     state.paused = false
     state.elapsed = 0
-    state.duration = tonumber(track.duration) or 0
+    state.duration = tonumber(track and track.duration) or 0
     state.startedAt = now()
     state.seekTo = 0
     broadcastGroup(groupId)
+end
+
+local function stopGroup(groupId)
+    local group = Groups[groupId]
+    if not group then
+        return
+    end
+    local state = group.state
+    state.current = nil
+    state.playing = false
+    state.paused = false
+    state.elapsed = 0
+    state.duration = 0
+    state.startedAt = 0
+    state.playToken = (state.playToken or 0) + 1
+    broadcastGroup(groupId)
+end
+
+local function advanceGroup(groupId, reason)
+    local group = Groups[groupId]
+    if not group then
+        return
+    end
+    local state = group.state
+    state.queue = state.queue or {}
+
+    if state.loop == 'track' and state.current and reason == 'ended' then
+        playOnGroup(groupId, state.current)
+        return
+    end
+
+    if #state.queue > 0 then
+        local nextTrack
+        if state.shuffle then
+            local index = math.random(1, #state.queue)
+            nextTrack = table.remove(state.queue, index)
+        else
+            nextTrack = table.remove(state.queue, 1)
+        end
+        if state.loop == 'queue' and state.current then
+            state.queue[#state.queue + 1] = DJ.Copy(state.current)
+        end
+        playOnGroup(groupId, nextTrack)
+        return
+    end
+
+    if state.loop == 'queue' and state.current then
+        playOnGroup(groupId, state.current)
+        return
+    end
+
+    stopGroup(groupId)
 end
 
 CreateThread(function()
@@ -290,11 +342,22 @@ RegisterNetEvent('djbooth:speakerPlay', function(speakerId, url, immediate)
             return
         end
         local first = table.remove(tracks, 1)
+        group.state.queue = group.state.queue or {}
         if immediate or not group.state.current then
-            group.state.queue = tracks
+            for i = 1, #tracks do
+                if #group.state.queue >= Config.MaxQueue then
+                    break
+                end
+                group.state.queue[#group.state.queue + 1] = tracks[i]
+            end
             playOnGroup(speaker.groupId, first)
         else
+            group.state.queue[#group.state.queue + 1] = first
             for i = 1, #tracks do
+                if #group.state.queue >= Config.MaxQueue then
+                    Permissions.Notify(src, Config.Locale.queue_full, 'error')
+                    break
+                end
                 group.state.queue[#group.state.queue + 1] = tracks[i]
             end
             broadcastGroup(speaker.groupId)
@@ -326,11 +389,36 @@ RegisterNetEvent('djbooth:speakerControl', function(speakerId, action, value)
         state.playing = true
         state.startedAt = now()
     elseif action == 'stop' then
-        state.current = nil
-        state.playing = false
-        state.paused = false
-        state.elapsed = 0
-        state.playToken = (state.playToken or 0) + 1
+        stopGroup(gid)
+        return
+    elseif action == 'skip' then
+        advanceGroup(gid, 'skip')
+        return
+    elseif action == 'previous' then
+        if state.current then
+            playOnGroup(gid, state.current)
+        end
+        return
+    elseif action == 'seek' then
+        if not state.current then
+            return
+        end
+        local stamp = math.max(0, math.floor(tonumber(value) or 0))
+        if state.duration and state.duration > 0 then
+            stamp = math.min(stamp, math.max(0, state.duration - 1))
+        end
+        state.elapsed = stamp
+        state.startedAt = state.paused and 0 or now()
+        state.seekTo = stamp
+        local payload = {}
+        local members = membersOf(gid)
+        for i = 1, #members do
+            payload[#payload + 1] = publicSpeaker(members[i])
+        end
+        local snap = snapshotState(state)
+        snap.seekTo = stamp
+        TriggerClientEvent('djbooth:speakerAudio', -1, gid, payload, snap)
+        return
     elseif action == 'volume' then
         speaker.volume = DJ.Clamp(value, 0.0, Config.MaxVolume)
         persist()
@@ -340,9 +428,11 @@ RegisterNetEvent('djbooth:speakerControl', function(speakerId, action, value)
         speaker.radius = DJ.Clamp(value, minR, maxR)
         persist()
     elseif action == 'loop' then
-        if value == 'track' or value == 'off' then
+        if value == 'track' or value == 'queue' or value == 'off' then
             state.loop = value
         end
+    elseif action == 'shuffle' then
+        state.shuffle = value and true or false
     elseif action == 'permanent' then
         if not (Permissions.IsAdmin(src) or speaker.owner == Permissions.GetIdentifier(src)) then
             return
@@ -470,19 +560,7 @@ RegisterNetEvent('djbooth:speakerEnded', function(rigId, token)
     if group.state.paused then
         return
     end
-    if group.state.loop == 'track' and group.state.current then
-        playOnGroup(groupId, group.state.current)
-        return
-    end
-    if group.state.queue and #group.state.queue > 0 then
-        local nextTrack = table.remove(group.state.queue, 1)
-        playOnGroup(groupId, nextTrack)
-        return
-    end
-    group.state.current = nil
-    group.state.playing = false
-    group.state.playToken = (group.state.playToken or 0) + 1
-    broadcastGroup(groupId)
+    advanceGroup(groupId, 'ended')
 end)
 
 AddEventHandler('playerDropped', function()

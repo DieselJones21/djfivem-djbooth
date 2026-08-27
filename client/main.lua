@@ -129,7 +129,7 @@ end
 
 function OpenBooth(boothId)
     if Nui.open then
-        return
+        Nui.Close()
     end
     TriggerServerEvent('djbooth:openBooth', boothId)
 end
@@ -198,6 +198,23 @@ RegisterNetEvent('djbooth:setAdmin', function(isAdmin)
         LocalPlayer.state:set('djboothAdmin', isAdmin and true or false, false)
     end)
 end)
+
+local function hideUiIfIdle()
+    if Nui and Nui.ForceHide then
+        Nui.ForceHide()
+    end
+end
+
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource ~= GetCurrentResourceName() then
+        return
+    end
+    hideUiIfIdle()
+end)
+
+AddEventHandler('playerSpawned', hideUiIfIdle)
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', hideUiIfIdle)
+RegisterNetEvent('esx:playerLoaded', hideUiIfIdle)
 
 CreateThread(function()
     while GetResourceState('xsound') ~= 'started' do

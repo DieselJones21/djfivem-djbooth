@@ -1,6 +1,29 @@
 (() => {
-    const isFiveM = typeof GetParentResourceName === 'function';
-    const resourceName = () => (isFiveM ? GetParentResourceName() : 'djbooth');
+    function detectFiveM() {
+        try {
+            if (typeof GetParentResourceName === 'function') {
+                const name = GetParentResourceName();
+                if (name && String(name).length) return true;
+            }
+        } catch (e) { /* ignore */ }
+        try {
+            if (typeof window.invokeNative === 'function') return true;
+        } catch (e) { /* ignore */ }
+        const href = String((window.location && window.location.href) || '');
+        if (href.indexOf('nui://') === 0 || href.indexOf('https://cfx-nui-') === 0) return true;
+        if (window.location && window.location.protocol === 'nui:') return true;
+        return false;
+    }
+
+    const isFiveM = detectFiveM();
+    const resourceName = () => {
+        try {
+            if (typeof GetParentResourceName === 'function') return GetParentResourceName();
+        } catch (e) { /* ignore */ }
+        return 'djbooth';
+    };
+
+    if (isFiveM) document.body.classList.add('fivem');
 
     const state = {
         tab: 'now',
@@ -143,12 +166,16 @@
 
     async function nui(name, data = {}) {
         if (!isFiveM) return { ok: true, preview: true };
-        const res = await fetch(`https://${resourceName()}/${name}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-            body: JSON.stringify(data),
-        });
-        try { return await res.json(); } catch { return { ok: true }; }
+        try {
+            const res = await fetch(`https://${resourceName()}/${name}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                body: JSON.stringify(data),
+            });
+            try { return await res.json(); } catch { return { ok: true }; }
+        } catch (e) {
+            return { ok: false };
+        }
     }
 
     function setClock() {
@@ -156,17 +183,44 @@
         $('clock').textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
 
+    function isStageOpen() {
+        return $('stage')?.classList.contains('is-open');
+    }
+
     function showStage() {
-        $('stage').hidden = false;
+        const stage = $('stage');
+        if (!stage) return;
+        stage.hidden = false;
+        stage.classList.add('is-open');
         document.body.classList.toggle('fivem', isFiveM);
-        $('previewBar').hidden = isFiveM;
+        const bar = $('previewBar');
+        if (bar) {
+            const showPreview = !isFiveM;
+            bar.hidden = !showPreview;
+            bar.classList.toggle('is-open', showPreview);
+        }
         setClock();
     }
 
     function hideStage() {
-        $('stage').hidden = true;
+        const stage = $('stage');
+        if (stage) {
+            stage.hidden = true;
+            stage.classList.remove('is-open');
+        }
+        const bar = $('previewBar');
+        if (bar) {
+            bar.hidden = true;
+            bar.classList.remove('is-open');
+        }
         $('modalRoot').innerHTML = '';
         state.mode = null;
+        state.speaker = null;
+    }
+
+    function requestClose() {
+        hideStage();
+        nui('close');
     }
 
     function navItems() {
@@ -627,7 +681,7 @@
                     <div style="text-align:right"><button class="btn btn-ghost" id="closeUi">Close</button></div>
                 </div>
             `;
-            $('closeUi')?.addEventListener('click', () => nui('close'));
+            $('closeUi')?.addEventListener('click', requestClose);
             return;
         }
 
@@ -656,6 +710,7 @@
                         <div class="bar" id="seekBar"><i style="width:${pct}%"></i></div>
                         <span>${fmt(state.playback.duration)}</span>
                     </div>
+                    <div style="text-align:right;margin-top:8px"><button class="btn btn-ghost" id="closeUi">Close</button></div>
                 </div>
             </div>
         `;
@@ -679,6 +734,7 @@
             const ratio = (e.clientX - rect.left) / rect.width;
             nui('control', { action: 'seek', value: Math.floor(ratio * state.playback.duration) });
         });
+        $('closeUi')?.addEventListener('click', requestClose);
     }
 
     function bindPage() {
@@ -787,7 +843,7 @@
             });
         }));
 
-        $('cancelCreate')?.addEventListener('click', () => nui('close'));
+        $('cancelCreate')?.addEventListener('click', requestClose);
         $('confirmCreate')?.addEventListener('click', () => {
             nui('createBooth', {
                 ...state.draft,
@@ -818,7 +874,7 @@
     }
 
     function render() {
-        if ($('stage').hidden) return;
+        if (!isStageOpen()) return;
         if (state.mode === 'create') state.tab = 'create';
         if (state.mode === 'admin' && !['admin'].includes(state.tab)) state.tab = 'admin';
         if (state.mode === 'speaker' && !['speaker', 'speakerMixer', 'speakerGroup'].includes(state.tab)) state.tab = 'speaker';
@@ -939,8 +995,13 @@
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') nui('close');
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            requestClose();
+        }
     });
+
+    $('statusClose')?.addEventListener('click', requestClose);
 
     $('previewBar')?.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
@@ -996,7 +1057,11 @@
 
     setInterval(setClock, 10000);
 
-    if (!isFiveM) {
+    document.querySelector('.home-bar')?.addEventListener('click', requestClose);
+
+    if (isFiveM) {
+        hideStage();
+    } else {
         showStage();
         const view = new URLSearchParams(location.search).get('view') || 'booth';
         $('previewBar').querySelectorAll('button').forEach((b) => {

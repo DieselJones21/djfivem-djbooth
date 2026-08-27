@@ -5,10 +5,6 @@ Nui = {
     speakerId = nil,
 }
 
-local function resourceName()
-    return GetCurrentResourceName()
-end
-
 function Nui.Send(action, payload)
     SendNUIMessage({
         action = action,
@@ -18,12 +14,22 @@ end
 
 function Nui.Close(keepAdmin)
     SetNuiFocus(false, false)
+    SetNuiFocusKeepInput(false)
     Nui.open = false
     if not keepAdmin then
         Nui.mode = nil
         Nui.boothId = nil
         Nui.speakerId = nil
     end
+    Nui.Send('close')
+end
+
+function Nui.ForceHide()
+    if Nui.open then
+        return
+    end
+    SetNuiFocus(false, false)
+    SetNuiFocusKeepInput(false)
     Nui.Send('close')
 end
 
@@ -193,8 +199,28 @@ RegisterNUICallback('refreshAdmin', function(_, cb)
     cb({ ok = true })
 end)
 
-RegisterCommand('+' .. resourceName() .. '_close', function()
+RegisterCommand('lumina_close', function()
     if Nui.open then
         Nui.Close()
     end
 end, false)
+
+CreateThread(function()
+    -- ui_page is always drawn; hide it on join / resource start so it cannot stick.
+    Nui.ForceHide()
+    for _ = 1, 8 do
+        Wait(250)
+        Nui.ForceHide()
+    end
+end)
+
+CreateThread(function()
+    while true do
+        if Nui.open then
+            DisableControlAction(0, 200, true) -- pause menu
+            Wait(0)
+        else
+            Wait(200)
+        end
+    end
+end)
