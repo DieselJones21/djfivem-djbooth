@@ -11,7 +11,7 @@
     description = 'A portable boombox. Use it to place a speaker you can pick back up.',
     client = {
         image = 'lumina_speaker_handheld.png',
-        export = 'djbooth.useSpeaker',
+        export = 'djbooth.useHandheld',
     },
 },
 
@@ -24,7 +24,7 @@
     description = 'A tall PA cabinet with serious throw. Place it, then E for the speaker menu.',
     client = {
         image = 'lumina_speaker_big.png',
-        export = 'djbooth.useSpeaker',
+        export = 'djbooth.useBigSpeaker',
     },
 },
 
@@ -37,6 +37,6 @@
     description = 'A stand-mounted PA. Group it with nearby speakers for a synced stack.',
     client = {
         image = 'lumina_speaker_tripod.png',
-        export = 'djbooth.useSpeaker',
+        export = 'djbooth.useTripodSpeaker',
     },
 },

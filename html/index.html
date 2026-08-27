@@ -8,6 +8,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@320;400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/style.css" />
+    <style>
+        /* Critical: FiveM always paints ui_page. Never show the tablet until JS adds .is-open. */
+        html, body { background: transparent !important; pointer-events: none; }
+        body:not(.fivem) { pointer-events: auto; }
+        #stage { display: none !important; }
+        #stage.is-open { display: grid !important; place-items: center; pointer-events: auto; }
+        #previewBar { display: none !important; }
+        #previewBar.is-open { display: flex !important; }
+    </style>
 </head>
 <body>
     <div class="stage" id="stage" hidden>
@@ -30,6 +39,7 @@
                         <span class="status-pills">
                             <span>5G</span>
                             <span class="battery">87%</span>
+                            <button class="status-close" id="statusClose" type="button" title="Close">Close</button>
                         </span>
                     </header>
 

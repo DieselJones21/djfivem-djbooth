@@ -102,8 +102,21 @@ RegisterNetEvent('djbooth:client:placeSpeaker', function(itemName, slot)
 end)
 
 exports('useSpeaker', function(data, slot)
-    local name = data and (data.name or data)
-    PlacePortableSpeaker(name, slot and (slot.slot or slot))
+    local name = nil
+    local slotId = nil
+    if type(data) == 'string' then
+        name = data
+    elseif type(data) == 'table' then
+        name = data.name or data.item or data.itemName
+        slotId = data.slot
+    end
+    if type(slot) == 'table' then
+        name = name or slot.name
+        slotId = slot.slot or slotId
+    elseif slot ~= nil then
+        slotId = slot
+    end
+    PlacePortableSpeaker(name, slotId)
 end)
 
 RegisterNetEvent('djbooth:syncSpeakers', function(list)
@@ -139,9 +152,6 @@ RegisterNetEvent('djbooth:upsertSpeaker', function(speaker)
         return
     end
     PortableSpeakers.Spawn(speaker)
-    if speaker.state then
-        applyGroupAudio(speaker.groupId or speaker.id, { speaker }, speaker.state)
-    end
 end)
 
 RegisterNetEvent('djbooth:removeSpeaker', function(speakerId)
