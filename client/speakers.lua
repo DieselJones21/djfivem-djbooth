@@ -58,6 +58,7 @@ function PortableSpeakers.Spawn(speaker)
         label = Config.SpeakerInteractLabel,
         icon = Config.SpeakerInteractIcon,
         onUse = function()
+            Nui.expectOpenUntil = GetGameTimer() + 4000
             TriggerServerEvent('djbooth:openSpeaker', speaker.id)
         end,
     })

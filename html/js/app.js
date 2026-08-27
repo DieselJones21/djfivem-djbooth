@@ -923,6 +923,7 @@
         state.appName = payload.appName || 'Lumina';
         state.appTagline = payload.appTagline || 'Live Booth OS';
         state.booth = payload.booth;
+        state.speaker = null;
         state.playback = Object.assign(emptyPlayback(), payload.state || {});
         state.songs = payload.songs || [];
         state.playlists = payload.playlists || [];
@@ -948,6 +949,7 @@
 
     window.addEventListener('message', (event) => {
         const { action, payload } = event.data || {};
+        if (action === 'openBooth') applyBoothPayload(payload || {});
         if (action === 'openSpeaker') applySpeaker(payload || {});
         if (action === 'syncSpeaker') {
             if (payload?.speaker) {
@@ -995,10 +997,10 @@
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            requestClose();
-        }
+        if (e.key !== 'Escape') return;
+        e.preventDefault();
+        if (isStageOpen()) hideStage();
+        nui('close');
     });
 
     $('statusClose')?.addEventListener('click', requestClose);

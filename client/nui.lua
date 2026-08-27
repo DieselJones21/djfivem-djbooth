@@ -3,6 +3,7 @@ Nui = {
     mode = nil,
     boothId = nil,
     speakerId = nil,
+    expectOpenUntil = 0,
 }
 
 function Nui.Send(action, payload)
@@ -28,6 +29,9 @@ function Nui.ForceHide()
     if Nui.open then
         return
     end
+    if (Nui.expectOpenUntil or 0) > GetGameTimer() then
+        return
+    end
     SetNuiFocus(false, false)
     SetNuiFocusKeepInput(false)
     Nui.Send('close')
@@ -40,6 +44,8 @@ function Nui.Focus()
 end
 
 function Nui.OpenBooth(payload)
+    payload = payload or {}
+    Nui.expectOpenUntil = 0
     Nui.mode = 'booth'
     Nui.boothId = payload.booth and payload.booth.id or nil
     Nui.Focus()
@@ -58,6 +64,7 @@ function Nui.OpenAdmin(payload)
     Nui.mode = 'admin'
     Nui.boothId = nil
     if payload then
+        Nui.expectOpenUntil = 0
         Nui.Focus()
         payload.appName = Config.AppName
         payload.models = Config.Models
@@ -66,10 +73,13 @@ function Nui.OpenAdmin(payload)
         Nui.Send('openAdmin', payload)
         return
     end
+    Nui.expectOpenUntil = GetGameTimer() + 4000
     TriggerServerEvent('djbooth:requestAdmin')
 end
 
 function Nui.OpenSpeaker(payload)
+    payload = payload or {}
+    Nui.expectOpenUntil = 0
     Nui.mode = 'speaker'
     Nui.speakerId = payload.speaker and payload.speaker.id or nil
     Nui.boothId = nil
@@ -85,6 +95,7 @@ function Nui.OpenSpeaker(payload)
 end
 
 function Nui.OpenCreate(draft)
+    Nui.expectOpenUntil = 0
     Nui.mode = 'create'
     Nui.Focus()
     Nui.Send('openCreate', {
@@ -206,12 +217,11 @@ RegisterCommand('lumina_close', function()
 end, false)
 
 CreateThread(function()
-    -- ui_page is always drawn; hide it on join / resource start so it cannot stick.
+    -- ui_page is always drawn; hide it on join so it cannot stick.
+    Wait(0)
     Nui.ForceHide()
-    for _ = 1, 8 do
-        Wait(250)
-        Nui.ForceHide()
-    end
+    Wait(500)
+    Nui.ForceHide()
 end)
 
 CreateThread(function()

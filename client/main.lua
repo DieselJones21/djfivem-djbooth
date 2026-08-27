@@ -128,9 +128,20 @@ function Booths.SyncAll(list)
 end
 
 function OpenBooth(boothId)
-    if Nui.open then
-        Nui.Close()
+    if not boothId then
+        return
     end
+    local now = GetGameTimer()
+    if Nui.open and Nui.mode == 'booth' and Nui.boothId == boothId then
+        return
+    end
+    if (Nui.lastOpenAt or 0) + 400 > now then
+        return
+    end
+    Nui.lastOpenAt = now
+    -- Do not Nui.Close() first: that SendNUIMessage('close') can arrive after
+    -- openBooth and hide the tablet we just opened.
+    Nui.expectOpenUntil = now + 4000
     TriggerServerEvent('djbooth:openBooth', boothId)
 end
 
