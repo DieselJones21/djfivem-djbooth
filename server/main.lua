@@ -177,8 +177,6 @@ local function sanitizeBoothInput(data, existing)
     }
 end
 
-local resolveTrack
-
 local function playTrack(boothId, track, fromQueue)
     local state = States[boothId]
     if not state then
@@ -240,7 +238,7 @@ local function advance(boothId, reason)
     broadcastAudio(boothId)
 end
 
-resolveTrack = function(url, cb)
+ResolveTrack = function(url, cb)
     url = DJ.Trim(url or '')
     if not DJ.IsValidMediaUrl(url) then
         cb(nil, Config.Locale.invalid_url)
@@ -258,7 +256,7 @@ resolveTrack = function(url, cb)
         PerformHttpRequest(api, function(status, body)
             if status ~= 200 or not body then
                 if videoId then
-                    resolveTrack('https://www.youtube.com/watch?v=' .. videoId, cb)
+                    ResolveTrack('https://www.youtube.com/watch?v=' .. videoId, cb)
                 else
                     cb(nil, 'Could not expand that YouTube playlist.')
                 end
@@ -376,6 +374,9 @@ RegisterNetEvent('djbooth:playerReady', function()
     local src = source
     TriggerClientEvent('djbooth:setAdmin', src, Permissions.IsAdmin(src))
     TriggerClientEvent('djbooth:syncBooths', src, publicList())
+    if SpeakerSync and SpeakerSync.List then
+        TriggerClientEvent('djbooth:syncSpeakers', src, SpeakerSync.List())
+    end
 end)
 
 RegisterNetEvent('djbooth:openBooth', function(boothId)
@@ -555,7 +556,7 @@ RegisterNetEvent('djbooth:playUrl', function(boothId, url, immediate)
         return
     end
     local state = States[boothId]
-    resolveTrack(url, function(tracks, err)
+    ResolveTrack(url, function(tracks, err)
         if err or not tracks then
             Permissions.Notify(src, err or Config.Locale.invalid_url, 'error')
             return
@@ -719,7 +720,7 @@ RegisterNetEvent('djbooth:saveSong', function(data)
         return
     end
 
-    resolveTrack(url, function(tracks, err)
+    ResolveTrack(url, function(tracks, err)
         if err or not tracks or not tracks[1] then
             Permissions.Notify(src, err or Config.Locale.invalid_url, 'error')
             return

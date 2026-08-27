@@ -95,32 +95,47 @@ local function deletePreview()
     previewObject = nil
 end
 
+local pendingItem
+local pendingSlot
+
 function Placement.Stop(silent)
+    local kind = pendingKind
     Placement.active = false
     deletePreview()
     currentModel = nil
     pendingBoothId = nil
+    pendingItem = nil
+    pendingSlot = nil
     SetNuiFocus(false, false)
-    if not silent then
+    if not silent and kind ~= 'portable' then
         Nui.OpenAdmin()
     end
 end
 
-function Placement.Start(kind, model, boothId)
+function Placement.Start(kind, model, boothId, extra)
     if Placement.active then
         Placement.Stop(true)
     end
 
     pendingKind = kind or 'booth'
     pendingBoothId = boothId
+    extra = extra or {}
+    pendingItem = extra.item
+    pendingSlot = extra.slot
     currentModel = model or (pendingKind == 'speaker' and Config.SpeakerModel or Config.DefaultModel)
     heading = GetEntityHeading(PlayerPedId())
     heightOffset = 0.0
 
     local hash = requestModel(currentModel)
+    if not hash and extra.fallback then
+        currentModel = extra.fallback
+        hash = requestModel(currentModel)
+    end
     if not hash then
         Framework.Notify('That prop model is not available on this server.', 'error')
-        Nui.OpenAdmin()
+        if pendingKind ~= 'portable' then
+            Nui.OpenAdmin()
+        end
         return
     end
 
@@ -173,7 +188,10 @@ function Placement.Start(kind, model, boothId)
                 local kindNow = pendingKind
                 local boothIdNow = pendingBoothId
                 local modelNow = currentModel
+                local itemNow = pendingItem
+                local slotNow = pendingSlot
                 Placement.active = false
+                pendingKind = nil
                 deletePreview()
 
                 if kindNow == 'speaker' then
@@ -181,6 +199,8 @@ function Placement.Start(kind, model, boothId)
                     Framework.Notify(Config.Locale.speaker_placed, 'success')
                     Wait(120)
                     Nui.OpenAdmin()
+                elseif kindNow == 'portable' then
+                    TriggerServerEvent('djbooth:placePortableSpeaker', itemNow, DJ.Vec(coords), hdg, modelNow, slotNow)
                 else
                     Nui.OpenCreate({
                         coords = DJ.Vec(coords),

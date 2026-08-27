@@ -16,7 +16,10 @@
         booths: [],
         models: [],
         draft: null,
-        selectedPlaylist: null,
+        speaker: null,
+        nearby: [],
+        canPickup: false,
+        canPermanent: false,
         limits: { maxVolume: 1, minRadius: 8, maxRadius: 120 },
     };
 
@@ -170,6 +173,13 @@
         if (state.mode === 'admin' || state.mode === 'create') {
             return [['admin', 'Booth Admin', icons.admin]];
         }
+        if (state.mode === 'speaker') {
+            return [
+                ['speaker', 'Sound', icons.now],
+                ['speakerMixer', 'Range', icons.mixer],
+                ['speakerGroup', 'Group', icons.plus],
+            ];
+        }
         const items = [
             ['now', 'Now Playing', icons.now],
             ['queue', 'Queue', icons.queue],
@@ -204,7 +214,11 @@
     function renderChip() {
         $('appName').textContent = state.appName;
         $('appTag').textContent = state.appTagline;
-        $('boothName').textContent = state.booth?.name || (state.mode === 'admin' ? 'Placement' : 'No booth');
+        $('boothName').textContent = state.speaker?.label || state.booth?.name || (state.mode === 'admin' ? 'Placement' : 'No booth');
+        if (state.speaker) {
+            $('boothMeta').textContent = `${state.speaker.permanent ? 'Permanent' : 'Portable'} · ${Math.round(state.speaker.radius || 0)}m · group ${state.speaker.groupSize || 1}`;
+            return;
+        }
         const jobs = (state.booth?.jobs || []).map((j) => j.name || j).join(', ');
         $('boothMeta').textContent = state.booth
             ? `${jobs || 'Public'} · ${Math.round(state.playback.radius || state.booth.radius || 0)}m`
@@ -434,6 +448,101 @@
         `;
     }
 
+    function renderSpeakerSound() {
+        const cur = state.playback.current;
+        const sp = state.speaker || {};
+        return `
+            <div class="page-head">
+                <div>
+                    <p class="eyebrow">${esc(sp.permanent ? 'Permanent rig' : 'Portable')}</p>
+                    <h1>${esc(sp.label || 'Speaker')}</h1>
+                    <p>Play a YouTube link from this speaker. Grouped speakers share the track.</p>
+                </div>
+            </div>
+            <div class="hero">
+                <div class="vinyl-wrap">
+                    ${cover(cur || { title: sp.label || 'Speaker' })}
+                    <div class="vinyl ${state.playback.playing && !state.playback.paused ? 'spin' : ''}"></div>
+                </div>
+                <div class="hero-copy">
+                    <h2>${esc(cur?.title || 'Silent')}</h2>
+                    <p class="author">${esc(cur?.author || 'Paste a link to fill the room')}</p>
+                    ${composer()}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderSpeakerMixer() {
+        const sp = state.speaker || {};
+        const vol = Math.round((sp.volume || 0) * 100);
+        const radius = Math.round(sp.radius || 0);
+        return `
+            <div class="page-head">
+                <div>
+                    <p class="eyebrow">Output</p>
+                    <h1>Range & volume</h1>
+                    <p>These sliders only change this speaker, not the rest of the group.</p>
+                </div>
+            </div>
+            <div class="mixer">
+                <article class="mixer-card">
+                    <h3>Volume</h3>
+                    <div class="slider-row">
+                        <input type="range" id="vol" min="0" max="${Math.round(state.limits.maxVolume * 100)}" value="${vol}" />
+                        <span id="volLabel">${vol}%</span>
+                    </div>
+                </article>
+                <article class="mixer-card">
+                    <h3>Hearing radius</h3>
+                    <div class="slider-row">
+                        <input type="range" id="rad" min="${state.limits.minRadius}" max="${state.limits.maxRadius}" value="${radius}" />
+                        <span id="radLabel">${radius}m</span>
+                    </div>
+                </article>
+                <article class="mixer-card">
+                    <h3>Stay in the world</h3>
+                    <button class="chip ${sp.permanent ? 'on' : ''}" id="permBtn" ${state.canPermanent ? '' : 'disabled'}>${sp.permanent ? 'Permanent' : 'Pick-upable'}</button>
+                    <p style="margin-top:10px">Permanent speakers survive restarts and cannot be picked up until you unlock them.</p>
+                </article>
+                <article class="mixer-card">
+                    <h3>Pickup</h3>
+                    <button class="btn btn-danger" id="pickupBtn" ${state.canPickup ? '' : 'disabled'}>Pick up speaker</button>
+                </article>
+            </div>
+        `;
+    }
+
+    function renderSpeakerGroup() {
+        const nearby = state.nearby || [];
+        return `
+            <div class="page-head">
+                <div>
+                    <p class="eyebrow">Stack</p>
+                    <h1>Group speakers</h1>
+                    <p>Link nearby speakers so they play the same track in sync.</p>
+                </div>
+                <button class="btn btn-ghost" id="leaveGroup">Leave group</button>
+            </div>
+            <div class="list">
+                ${nearby.length ? nearby.map((s) => `
+                    <article class="track">
+                        <div class="cover cover-fallback" style="--h:8"></div>
+                        <div>
+                            <h4>${esc(s.label)}</h4>
+                            <p>${s.distance}m · ${s.grouped ? 'In this group' : 'Nearby'} ${s.permanent ? '· permanent' : ''}</p>
+                        </div>
+                        <div class="track-actions">
+                            ${s.grouped
+                                ? ''
+                                : `<button class="btn btn-sm btn-primary" data-join="${esc(s.id)}">Group</button>`}
+                        </div>
+                    </article>
+                `).join('') : '<div class="empty"><div class="blob"></div>No other speakers in range.</div>'}
+            </div>
+        `;
+    }
+
     function jobText(booth) {
         const jobs = booth.jobs || [];
         if (!jobs.length) return 'Public';
@@ -639,6 +748,13 @@
         });
         $('shuffleBtn')?.addEventListener('click', () => nui('control', { action: 'shuffle', value: !state.playback.shuffle }));
 
+        $('permBtn')?.addEventListener('click', () => nui('control', { action: 'permanent', value: !state.speaker?.permanent }));
+        $('pickupBtn')?.addEventListener('click', () => nui('speakerPickup'));
+        $('leaveGroup')?.addEventListener('click', () => nui('speakerGroup', { action: 'leave' }));
+        document.querySelectorAll('[data-join]').forEach((btn) => {
+            btn.addEventListener('click', () => nui('speakerGroup', { action: 'join', targetId: btn.dataset.join }));
+        });
+
         $('placeBooth')?.addEventListener('click', () => nui('startPlacement', { model: $('modelSelect').value }));
         document.querySelectorAll('[data-tp]').forEach((btn) => {
             const booth = state.booths.find((b) => b.id === btn.dataset.tp);
@@ -705,6 +821,7 @@
         if ($('stage').hidden) return;
         if (state.mode === 'create') state.tab = 'create';
         if (state.mode === 'admin' && !['admin'].includes(state.tab)) state.tab = 'admin';
+        if (state.mode === 'speaker' && !['speaker', 'speakerMixer', 'speakerGroup'].includes(state.tab)) state.tab = 'speaker';
         renderNav();
         renderChip();
         const page = $('page');
@@ -714,12 +831,35 @@
             library: renderLibrary,
             playlists: renderPlaylists,
             mixer: renderMixer,
+            speaker: renderSpeakerSound,
+            speakerMixer: renderSpeakerMixer,
+            speakerGroup: renderSpeakerGroup,
             admin: renderAdmin,
             create: renderCreate,
         };
         page.innerHTML = (pages[state.tab] || renderNow)();
         bindPage();
         renderPlayer();
+    }
+
+    function applySpeaker(payload) {
+        state.mode = 'speaker';
+        state.appName = payload.appName || 'Lumina';
+        state.appTagline = payload.appTagline || 'Speaker';
+        state.speaker = payload.speaker;
+        state.playback = Object.assign(emptyPlayback(), payload.speaker?.state || payload.state || {});
+        if (payload.speaker) {
+            state.playback.volume = payload.speaker.volume ?? state.playback.volume;
+            state.playback.radius = payload.speaker.radius ?? state.playback.radius;
+        }
+        state.nearby = payload.nearby || [];
+        state.canPickup = !!payload.canPickup;
+        state.canPermanent = !!payload.canPermanent;
+        state.isAdmin = !!payload.isAdmin;
+        state.limits = Object.assign(state.limits, payload.limits || {});
+        if (!['speaker', 'speakerMixer', 'speakerGroup'].includes(state.tab)) state.tab = 'speaker';
+        showStage();
+        render();
     }
 
     function applyBoothPayload(payload) {
@@ -752,7 +892,21 @@
 
     window.addEventListener('message', (event) => {
         const { action, payload } = event.data || {};
-        if (action === 'openBooth') applyBoothPayload(payload || {});
+        if (action === 'openSpeaker') applySpeaker(payload || {});
+        if (action === 'syncSpeaker') {
+            if (payload?.speaker) {
+                state.speaker = payload.speaker;
+                if (payload.speaker.state) {
+                    state.playback = Object.assign(state.playback, payload.speaker.state);
+                    state.playback.volume = payload.speaker.volume ?? state.playback.volume;
+                    state.playback.radius = payload.speaker.radius ?? state.playback.radius;
+                }
+            }
+            if (payload?.state) state.playback = Object.assign(state.playback, payload.state);
+            if (payload?.nearby) state.nearby = payload.nearby;
+            if (typeof payload?.canPickup === 'boolean') state.canPickup = payload.canPickup;
+            render();
+        }
         if (action === 'openAdmin') applyAdmin(payload || {});
         if (action === 'openCreate') {
             state.mode = 'create';
@@ -807,6 +961,30 @@
         if (btn.dataset.preview === 'admin') {
             applyAdmin({ appName: 'Lumina', booths: PREVIEW.booths, models: PREVIEW.models });
         }
+        if (btn.dataset.preview === 'speaker') {
+            applySpeaker({
+                appName: 'Lumina',
+                speaker: {
+                    id: 'spk1',
+                    label: 'Big Speaker',
+                    item: 'lumina_speaker_big',
+                    permanent: false,
+                    volume: 0.7,
+                    radius: 45,
+                    groupSize: 2,
+                    minRadius: 8,
+                    maxRadius: 100,
+                    state: PREVIEW.playback,
+                },
+                nearby: [
+                    { id: 'spk2', label: 'Tripod Speaker', distance: 6, grouped: true, permanent: false },
+                    { id: 'spk3', label: 'Handheld Speaker', distance: 12, grouped: false, permanent: false },
+                ],
+                canPickup: true,
+                canPermanent: true,
+                isAdmin: true,
+            });
+        }
         if (btn.dataset.preview === 'create') {
             state.mode = 'create';
             state.draft = { coords: { x: 1, y: 2, z: 3 }, heading: 90, model: 'prop_speaker_07' };
@@ -826,6 +1004,33 @@
         });
         if (view === 'admin') {
             applyAdmin({ appName: 'Lumina', booths: PREVIEW.booths, models: PREVIEW.models });
+        } else if (view === 'speaker' || view === 'speakerMixer' || view === 'speakerGroup') {
+            applySpeaker({
+                appName: 'Lumina',
+                speaker: {
+                    id: 'spk1',
+                    label: 'Big Speaker',
+                    item: 'lumina_speaker_big',
+                    permanent: false,
+                    volume: 0.7,
+                    radius: 45,
+                    groupSize: 2,
+                    minRadius: 8,
+                    maxRadius: 100,
+                    state: PREVIEW.playback,
+                },
+                nearby: [
+                    { id: 'spk2', label: 'Tripod Speaker', distance: 6, grouped: true, permanent: false },
+                    { id: 'spk3', label: 'Handheld Speaker', distance: 12, grouped: false, permanent: false },
+                ],
+                canPickup: true,
+                canPermanent: true,
+                isAdmin: true,
+            });
+            if (view !== 'speaker') {
+                state.tab = view;
+                render();
+            }
         } else if (view === 'create') {
             state.mode = 'create';
             state.draft = { coords: { x: 1, y: 2, z: 3 }, heading: 90, model: 'prop_speaker_07' };

@@ -88,32 +88,52 @@ function Interact.Register(booth)
     Interact.Remove(booth.id)
 
     local coords = DJ.ToVector3(booth.coords) + vector3(0.0, 0.0, 0.45)
-    local id = 'djbooth_' .. booth.id
-    local groups = groupsFrom(booth)
+    Interact.RegisterPoint({
+        id = booth.id,
+        coords = coords,
+        label = Config.Interact.label,
+        icon = Config.Interact.icon,
+        groups = groupsFrom(booth),
+        onUse = function()
+            OpenBooth(booth.id)
+        end,
+        canInteract = function()
+            return canOpen(Booths.Get(booth.id) or booth)
+        end,
+    })
+end
+
+function Interact.RegisterPoint(opts)
+    local id = opts.id
+    Interact.Remove(id)
+    local coords = opts.coords
+    local interactId = 'djbooth_' .. id
+    local label = opts.label or Config.Interact.label
+    local icon = opts.icon or Config.Interact.icon
+    local onUse = opts.onUse
+    local canInteract = opts.canInteract or function() return true end
 
     if GetResourceState(Config.Interact.resource) == 'started' then
         local payload = {
             coords = coords,
             distance = Config.Interact.distance,
             interactDst = Config.Interact.interactDst,
-            id = id,
+            id = interactId,
             options = {
                 {
-                    label = Config.Interact.label,
+                    label = label,
                     action = function()
-                        OpenBooth(booth.id)
+                        onUse()
                     end,
-                    canInteract = function()
-                        return canOpen(Booths.Get(booth.id) or booth)
-                    end,
+                    canInteract = canInteract,
                 },
             },
         }
-        if groups then
-            payload.groups = groups
+        if opts.groups then
+            payload.groups = opts.groups
         end
         exports[Config.Interact.resource]:AddInteraction(payload)
-        Interact.zones[booth.id] = { kind = 'interact' }
+        Interact.zones[id] = { kind = 'interact' }
         return
     end
 
@@ -124,50 +144,44 @@ function Interact.Register(booth)
             debug = false,
             options = {
                 {
-                    name = id,
-                    icon = Config.Interact.icon,
-                    label = Config.Interact.label,
-                    groups = groups,
-                    onSelect = function()
-                        OpenBooth(booth.id)
-                    end,
-                    canInteract = function()
-                        return canOpen(Booths.Get(booth.id) or booth)
-                    end,
+                    name = interactId,
+                    icon = icon,
+                    label = label,
+                    groups = opts.groups,
+                    onSelect = onUse,
+                    canInteract = canInteract,
                 },
             },
         })
-        Interact.zones[booth.id] = { kind = 'ox', ox = oxId }
+        Interact.zones[id] = { kind = 'ox', ox = oxId }
         return
     end
 
     if GetResourceState('qb-target') == 'started' then
-        exports['qb-target']:AddCircleZone(id, coords, Config.Interact.interactDst, {
-            name = id,
+        exports['qb-target']:AddCircleZone(interactId, coords, Config.Interact.interactDst, {
+            name = interactId,
             debugPoly = false,
             useZ = true,
         }, {
             options = {
                 {
-                    icon = Config.Interact.icon,
-                    label = Config.Interact.label,
-                    action = function()
-                        OpenBooth(booth.id)
-                    end,
-                    canInteract = function()
-                        return canOpen(Booths.Get(booth.id) or booth)
-                    end,
+                    icon = icon,
+                    label = label,
+                    action = onUse,
+                    canInteract = canInteract,
                 },
             },
             distance = Config.Interact.interactDst,
         })
-        Interact.zones[booth.id] = { kind = 'qb' }
+        Interact.zones[id] = { kind = 'qb' }
         return
     end
 
-    Interact.native[booth.id] = {
+    Interact.native[id] = {
         coords = coords,
-        label = Config.Interact.label,
+        label = label,
+        onUse = onUse,
+        canInteract = canInteract,
     }
 end
 
@@ -210,7 +224,13 @@ CreateThread(function()
         end
 
         if closest and closestDist <= Config.Interact.nativeDistance and IsControlJustReleased(0, 38) then
-            OpenBooth(closestId)
+            if closest.canInteract and not closest.canInteract() then
+                -- blocked
+            elseif closest.onUse then
+                closest.onUse()
+            else
+                OpenBooth(closestId)
+            end
         end
 
         Wait(sleep)

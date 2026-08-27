@@ -18,13 +18,16 @@ client_scripts {
     'client/interact.lua',
     'client/placement.lua',
     'client/nui.lua',
+    'client/speakers.lua',
     'client/main.lua',
 }
 
 server_scripts {
     'server/permissions.lua',
     'server/storage.lua',
+    'server/inventory.lua',
     'server/main.lua',
+    'server/speakers.lua',
 }
 
 ui_page 'html/index.html'
@@ -33,6 +36,7 @@ files {
     'html/index.html',
     'html/css/style.css',
     'html/js/app.js',
+    'html/images/items/*.png',
 }
 
 dependencies {

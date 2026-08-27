@@ -42,3 +42,17 @@ end
 function Storage.SaveLibrary(library)
     writeJson('data/library.json', library)
 end
+
+function Storage.LoadSpeakers()
+    return readJson('data/speakers.json', {})
+end
+
+function Storage.SaveSpeakers(speakers)
+    local list = {}
+    for _, speaker in pairs(speakers) do
+        local copy = DJ.Copy(speaker)
+        copy.state = nil
+        list[#list + 1] = copy
+    end
+    writeJson('data/speakers.json', list)
+end
