@@ -1,5 +1,5 @@
 Audio = {
-    booths = {},
+    rigs = {},
 }
 
 local xSound
@@ -10,21 +10,6 @@ local function sound()
     end
     xSound = xSound or exports.xsound
     return xSound
-end
-
-local function soundName(boothId, index)
-    return ('djbooth_%s_%s'):format(boothId, index)
-end
-
-local function positionsFor(booth)
-    local points = {}
-    points[#points + 1] = DJ.ToVector3(booth.coords)
-    if booth.speakers then
-        for i = 1, #booth.speakers do
-            points[#points + 1] = DJ.ToVector3(booth.speakers[i])
-        end
-    end
-    return points
 end
 
 local function destroyNames(names)
@@ -41,18 +26,18 @@ local function destroyNames(names)
     end
 end
 
-function Audio.Stop(boothId)
-    local entry = Audio.booths[boothId]
+function Audio.Stop(rigId)
+    local entry = Audio.rigs[rigId]
     if not entry then
         return
     end
     destroyNames(entry.names)
-    Audio.booths[boothId] = nil
+    Audio.rigs[rigId] = nil
 end
 
 function Audio.StopAll()
-    for boothId in pairs(Audio.booths) do
-        Audio.Stop(boothId)
+    for rigId in pairs(Audio.rigs) do
+        Audio.Stop(rigId)
     end
 end
 
@@ -80,57 +65,56 @@ local function applyPause(entry, paused)
     end
 end
 
-local function applyVolumeAndDistance(entry, volume, radius)
+local function applyMix(entry)
     local xs = sound()
     if not xs then
         return
     end
     for i = 1, #entry.names do
         local name = entry.names[i]
+        local point = entry.points and entry.points[i]
         pcall(function()
-            if xs:soundExists(name) then
-                xs:Distance(name, radius + 0.0)
-                xs:setVolumeMax(name, volume + 0.0)
+            if xs:soundExists(name) and point then
+                xs:Distance(name, (point.radius or Config.DefaultRadius) + 0.0)
+                xs:setVolumeMax(name, (point.volume or Config.DefaultVolume) + 0.0)
             end
         end)
     end
 end
 
-function Audio.Apply(booth, state)
+--- points = { { coords = vector3, volume = n, radius = n } }
+function Audio.ApplyRig(rigId, points, state, endedEvent)
     local xs = sound()
     if not xs then
         return
     end
 
-    if not booth or not state or not state.current or not state.current.url then
-        Audio.Stop(booth and booth.id)
+    if not rigId or not state or not state.current or not state.current.url or not points or #points == 0 then
+        Audio.Stop(rigId)
         return
     end
 
     if xs.isPlayerInStreamerMode and xs:isPlayerInStreamerMode() then
-        Audio.Stop(booth.id)
+        Audio.Stop(rigId)
         return
     end
 
-    local entry = Audio.booths[booth.id]
+    local entry = Audio.rigs[rigId]
     local url = state.current.url
-    local volume = DJ.Clamp(state.volume or booth.volume or Config.DefaultVolume, 0.0, Config.MaxVolume)
-    local radius = DJ.Clamp(state.radius or booth.radius or Config.DefaultRadius, Config.MinRadius, Config.MaxRadius)
-    local points = positionsFor(booth)
+    local sameTrack = entry and entry.url == url and entry.count == #points
 
-    local sameTrack = entry and entry.url == url
     if not sameTrack then
-        Audio.Stop(booth.id)
+        Audio.Stop(rigId)
         local names = {}
-        local started = 0
-
         for i = 1, #points do
-            local name = soundName(booth.id, i)
+            local name = ('djbooth_%s_%s'):format(rigId, i)
             names[i] = name
+            local point = points[i]
+            local volume = DJ.Clamp(point.volume or state.volume or Config.DefaultVolume, 0.0, Config.MaxVolume)
+            local radius = DJ.Clamp(point.radius or state.radius or Config.DefaultRadius, 1.0, Config.MaxRadius)
             pcall(function()
-                xs:PlayUrlPos(name, url, volume, points[i], false, {
+                xs:PlayUrlPos(name, url, volume, point.coords, false, {
                     onPlayStart = function()
-                        started = started + 1
                         pcall(function()
                             xs:Distance(name, radius + 0.0)
                             xs:setVolumeMax(name, volume + 0.0)
@@ -146,22 +130,27 @@ function Audio.Apply(booth, state)
                         end)
                     end,
                     onPlayEnd = function()
-                        TriggerServerEvent('djbooth:trackEnded', booth.id, state.playToken)
+                        if endedEvent then
+                            TriggerServerEvent(endedEvent, rigId, state.playToken)
+                        end
                     end,
                 })
             end)
         end
 
-        Audio.booths[booth.id] = {
+        Audio.rigs[rigId] = {
             url = url,
             names = names,
+            points = points,
+            count = #points,
             token = state.playToken,
         }
         return
     end
 
     entry.token = state.playToken
-    applyVolumeAndDistance(entry, volume, radius)
+    entry.points = points
+    applyMix(entry)
     applyPause(entry, state.paused and true or false)
 
     if state.seekTo then
@@ -175,9 +164,34 @@ function Audio.Apply(booth, state)
     end
 end
 
-function Audio.Timestamp(boothId)
+local function boothPoints(booth, state)
+    local volume = DJ.Clamp(state.volume or booth.volume or Config.DefaultVolume, 0.0, Config.MaxVolume)
+    local radius = DJ.Clamp(state.radius or booth.radius or Config.DefaultRadius, Config.MinRadius, Config.MaxRadius)
+    local points = {
+        { coords = DJ.ToVector3(booth.coords), volume = volume, radius = radius },
+    }
+    if booth.speakers then
+        for i = 1, #booth.speakers do
+            points[#points + 1] = {
+                coords = DJ.ToVector3(booth.speakers[i]),
+                volume = volume,
+                radius = radius,
+            }
+        end
+    end
+    return points
+end
+
+function Audio.Apply(booth, state)
+    if not booth then
+        return
+    end
+    Audio.ApplyRig(booth.id, boothPoints(booth, state or {}), state, 'djbooth:trackEnded')
+end
+
+function Audio.Timestamp(rigId)
     local xs = sound()
-    local entry = Audio.booths[boothId]
+    local entry = Audio.rigs[rigId]
     if not xs or not entry or not entry.names[1] then
         return 0, 0
     end

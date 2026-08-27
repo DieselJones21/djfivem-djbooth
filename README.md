@@ -10,6 +10,7 @@ A premium FiveM DJ booth resource with a bright tablet UI, YouTube playback thro
 - **Queue** — add, reorder, play now, clear, shuffle, loop track / loop queue
 - **Save songs** to a personal library (persisted on the server)
 - **Playlists** — create, add tracks, play the whole set, or dump it into the queue
+- **Portable speakers** — handheld, big PA, and tripod as ox_inventory items; place them, change volume/range, make permanent, and group nearby speakers so they play in sync
 - **Interact E prompts** using [darktrovx/interact](https://github.com/darktrovx/interact), with ox_target / qb-target / native 3D text fallbacks
 - **`/djadmin`** — walk-up placement, job locks, teleport, edit, delete, add speakers
 - **`/dj`** — open the nearest booth you can use
@@ -24,7 +25,8 @@ A premium FiveM DJ booth resource with a bright tablet UI, YouTube playback thro
 | `interact` | Recommended | E-prompt interaction ([darktrovx/interact](https://github.com/darktrovx/interact)) |
 | `ox_target` or `qb-target` | Optional | Used if `interact` is not running |
 | `ox_lib` | Optional | Notifications only |
-| `qb-core` / `qbx_core` / `es_extended` | Optional | Job locks + admin groups |
+| `ox_inventory` | Recommended | Usable speaker items (`lumina_speaker_*`) |
+| `qb-core` / `qbx_core` / `es_extended` | Optional | Job locks, admin groups, usable items |
 
 ## Install
 
@@ -53,8 +55,40 @@ QBCore `god` / `admin` and ESX `admin` / `superadmin` are also accepted. You can
 | --- | --- | --- |
 | `/djadmin` | Admins | Opens the placement tablet |
 | `/dj` | Anyone with booth access | Opens the nearest booth |
+| `/givespeaker handheld\|big\|tripod [id]` | Admins | Gives a speaker item |
+| `/placespeaker handheld\|big\|tripod` | Admins | Place a speaker without consuming an item |
 
 Walk up to a placed booth and press **E** (interact prompt) to open the DJ tablet.
+
+## Portable speakers
+
+GTA already has the props. We map them like this:
+
+| Item | Prop | Fallback | Default range |
+| --- | --- | --- | --- |
+| `lumina_speaker_handheld` | `prop_boombox_01` | `prop_portable_hifi_01` | 12m |
+| `lumina_speaker_big` | `prop_speaker_07` | `prop_speaker_03` | 45m |
+| `lumina_speaker_tripod` | `ba_prop_battle_club_speaker_small` (After Hours) | `prop_speaker_03` | 28m |
+
+GTA does not have a true camera-tripod PA. The tripod item uses the After Hours club speaker if that DLC is loaded, otherwise the vanilla box speaker.
+
+### ox_inventory setup
+
+1. Copy the three item blocks from `install/ox_inventory/items.lua` into `ox_inventory/data/items.lua`.
+2. Copy the PNGs from `install/ox_inventory/web/images/` into `ox_inventory/web/images/`.
+3. Restart `ox_inventory` then `djbooth`.
+
+QBCore / ESX usable items are registered automatically if those frameworks are running (you still need to add the items to your items list).
+
+### Using a speaker
+
+1. Use the item from inventory — placement is the same as booths (**E** confirm, **X** cancel, scroll rotate).
+2. Walk up and press **E** for the speaker menu.
+3. Paste a YouTube link, set volume and range.
+4. **Permanent** keeps it through restarts and blocks pickup until you unlock it.
+5. **Group** links nearby speakers so they share one track; each speaker still has its own volume and range.
+
+Pickup returns the inventory item (only if it is not permanent).
 
 ## Placing a booth
 

@@ -361,7 +361,7 @@ body.fivem .stage { background: transparent; }
     color: #ff6d57;
     border: 1px solid rgba(225, 6, 0, 0.28);
 }
-.btn-sm { padding: 8px 10px; border-radius: 10px; font-size: 12px; }
+button:disabled, .chip:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .icon-btn {
     width: 42px;
     height: 42px;

@@ -63,6 +63,56 @@ Config.MaxSpeakers = 4
 Config.MaxUrlLength = 400
 Config.PlayCooldownMs = 750
 
+--[[
+    Portable speakers (ox_inventory / qb / esx usable items)
+    Vanilla GTA props:
+      handheld  prop_boombox_01
+      big       prop_speaker_07
+      tripod    prop_speaker_03  (box PA — GTA has no true tripod; After Hours stand is optional)
+]]
+Config.SpeakerGroupDistance = 28.0
+Config.MaxSpeakerGroup = 8
+Config.MaxPortableSpeakers = 40
+Config.PermanentSpeakersPublic = true -- anyone can open a permanent speaker menu
+Config.SpeakerInteractLabel = 'Speaker Menu'
+Config.SpeakerInteractIcon = 'fa-solid fa-volume-high'
+
+Config.SpeakerItems = {
+    lumina_speaker_handheld = {
+        label = 'Handheld Speaker',
+        description = 'A portable boombox you can place, play, and pick back up.',
+        model = 'prop_boombox_01',
+        fallback = 'prop_portable_hifi_01',
+        defaultRadius = 12.0,
+        maxRadius = 28.0,
+        minRadius = 4.0,
+        defaultVolume = 0.6,
+        weight = 1500,
+    },
+    lumina_speaker_big = {
+        label = 'Big Speaker',
+        description = 'A tall PA cabinet with serious throw.',
+        model = 'prop_speaker_07',
+        fallback = 'prop_speaker_03',
+        defaultRadius = 45.0,
+        maxRadius = 100.0,
+        minRadius = 8.0,
+        defaultVolume = 0.75,
+        weight = 8000,
+    },
+    lumina_speaker_tripod = {
+        label = 'Tripod Speaker',
+        description = 'A stand-mounted PA. Uses After Hours if the pack is loaded.',
+        model = 'ba_prop_battle_club_speaker_small',
+        fallback = 'prop_speaker_03',
+        defaultRadius = 28.0,
+        maxRadius = 70.0,
+        minRadius = 6.0,
+        defaultVolume = 0.65,
+        weight = 4500,
+    },
+}
+
 -- Empty job list = public booth anyone can use
 Config.AllowPublicBooths = true
 
@@ -122,6 +172,15 @@ Config.Locale = {
     booth_placed = 'DJ booth placed.',
     booth_deleted = 'DJ booth removed.',
     speaker_placed = 'Speaker added to the booth.',
+    portable_placed = 'Speaker placed.',
+    portable_picked = 'Speaker picked up.',
+    speaker_permanent = 'Speaker is now permanent.',
+    speaker_unpermanent = 'Speaker can be picked up again.',
+    speaker_grouped = 'Speakers grouped. They now share the same track.',
+    speaker_ungrouped = 'Speaker left the group.',
+    speaker_denied = 'You cannot control this speaker.',
+    no_nearby_speakers = 'No other speakers close enough to group.',
+    group_full = 'That speaker group is full.',
     placement_help = 'E confirm  ·  X cancel  ·  scroll rotate  ·  arrows height',
     too_many_booths = 'Booth limit reached.',
     too_many_speakers = 'Speaker limit reached for this booth.',

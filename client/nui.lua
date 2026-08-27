@@ -2,6 +2,7 @@ Nui = {
     open = false,
     mode = nil,
     boothId = nil,
+    speakerId = nil,
 }
 
 local function resourceName()
@@ -21,6 +22,7 @@ function Nui.Close(keepAdmin)
     if not keepAdmin then
         Nui.mode = nil
         Nui.boothId = nil
+        Nui.speakerId = nil
     end
     Nui.Send('close')
 end
@@ -61,6 +63,21 @@ function Nui.OpenAdmin(payload)
     TriggerServerEvent('djbooth:requestAdmin')
 end
 
+function Nui.OpenSpeaker(payload)
+    Nui.mode = 'speaker'
+    Nui.speakerId = payload.speaker and payload.speaker.id or nil
+    Nui.boothId = nil
+    Nui.Focus()
+    payload.appName = Config.AppName
+    payload.appTagline = 'Speaker'
+    payload.limits = {
+        maxVolume = Config.MaxVolume,
+        minRadius = (payload.speaker and payload.speaker.minRadius) or 4.0,
+        maxRadius = (payload.speaker and payload.speaker.maxRadius) or Config.MaxRadius,
+    }
+    Nui.Send('openSpeaker', payload)
+end
+
 function Nui.OpenCreate(draft)
     Nui.mode = 'create'
     Nui.Focus()
@@ -84,12 +101,30 @@ RegisterNUICallback('notify', function(data, cb)
 end)
 
 RegisterNUICallback('playUrl', function(data, cb)
-    TriggerServerEvent('djbooth:playUrl', Nui.boothId, data and data.url, data and data.immediate)
+    if Nui.mode == 'speaker' then
+        TriggerServerEvent('djbooth:speakerPlay', Nui.speakerId, data and data.url, data and data.immediate)
+    else
+        TriggerServerEvent('djbooth:playUrl', Nui.boothId, data and data.url, data and data.immediate)
+    end
     cb({ ok = true })
 end)
 
 RegisterNUICallback('control', function(data, cb)
-    TriggerServerEvent('djbooth:control', Nui.boothId, data and data.action, data and data.value)
+    if Nui.mode == 'speaker' then
+        TriggerServerEvent('djbooth:speakerControl', Nui.speakerId, data and data.action, data and data.value)
+    else
+        TriggerServerEvent('djbooth:control', Nui.boothId, data and data.action, data and data.value)
+    end
+    cb({ ok = true })
+end)
+
+RegisterNUICallback('speakerGroup', function(data, cb)
+    TriggerServerEvent('djbooth:speakerGroup', Nui.speakerId, data and data.action, data and data.targetId)
+    cb({ ok = true })
+end)
+
+RegisterNUICallback('speakerPickup', function(_, cb)
+    TriggerServerEvent('djbooth:pickupSpeaker', Nui.speakerId)
     cb({ ok = true })
 end)
 

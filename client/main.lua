@@ -247,6 +247,15 @@ CreateThread(function()
                 Nui.Send('progress', { elapsed = elapsed, duration = duration })
                 TriggerServerEvent('djbooth:reportDuration', Nui.boothId, duration)
             end
+        elseif Nui.open and Nui.speakerId then
+            local speaker = PortableSpeakers.Get(Nui.speakerId)
+            local gid = speaker and (speaker.groupId or speaker.id)
+            if gid then
+                local elapsed, duration = Audio.Timestamp('spk_' .. gid)
+                if duration and duration > 0 then
+                    Nui.Send('progress', { elapsed = elapsed, duration = duration })
+                end
+            end
         end
     end
 end)
@@ -289,4 +298,7 @@ AddEventHandler('onResourceStop', function(resource)
     Interact.RemoveAll()
     Audio.StopAll()
     Booths.ClearProps()
+    if PortableSpeakers then
+        PortableSpeakers.Clear()
+    end
 end)

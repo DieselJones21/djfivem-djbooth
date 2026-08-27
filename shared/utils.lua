@@ -160,6 +160,10 @@ function DJ.EncodeURI(str)
     end))
 end
 
+function DJ.ResolveModel(model, fallback)
+    return model, fallback
+end
+
 function DJ.Clamp(value, min, max)
     value = tonumber(value) or min
     if value < min then
