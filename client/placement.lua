@@ -1,0 +1,203 @@
+Placement = {
+    active = false,
+}
+
+local previewObject
+local heading = 0.0
+local heightOffset = 0.0
+local currentModel
+local pendingKind = 'booth' -- booth | speaker
+local pendingBoothId
+local scaleform
+
+local function loadScaleform()
+    local sf = RequestScaleformMovie('instructional_buttons')
+    while not HasScaleformMovieLoaded(sf) do
+        Wait(0)
+    end
+    return sf
+end
+
+local function showInstructions()
+    if not scaleform then
+        scaleform = loadScaleform()
+    end
+
+    BeginScaleformMovieMethod(scaleform, 'CLEAR_ALL')
+    EndScaleformMovieMethod()
+
+    BeginScaleformMovieMethod(scaleform, 'SET_CLEAR_SPACE')
+    ScaleformMovieMethodAddParamInt(200)
+    EndScaleformMovieMethod()
+
+    local buttons = {
+        { 38, 'Confirm' },
+        { 73, 'Cancel' },
+        { 15, 'Rotate' },
+        { 172, 'Height' },
+    }
+
+    for index, button in ipairs(buttons) do
+        BeginScaleformMovieMethod(scaleform, 'SET_DATA_SLOT')
+        ScaleformMovieMethodAddParamInt(index - 1)
+        ScaleformMovieMethodAddParamPlayerNameString(GetControlInstructionalButton(0, button[1], true))
+        BeginTextCommandScaleformString('STRING')
+        AddTextComponentSubstringPlayerName(button[2])
+        EndTextCommandScaleformString()
+        EndScaleformMovieMethod()
+    end
+
+    BeginScaleformMovieMethod(scaleform, 'DRAW_INSTRUCTIONAL_BUTTONS')
+    EndScaleformMovieMethod()
+end
+
+local function rotationFromCam()
+    local rot = GetGameplayCamRot(2)
+    return vector3(
+        -math.sin(math.rad(rot.z)) * math.abs(math.cos(math.rad(rot.x))),
+        math.cos(math.rad(rot.z)) * math.abs(math.cos(math.rad(rot.x))),
+        math.sin(math.rad(rot.x))
+    )
+end
+
+local function raycastFromCamera(distance)
+    local cam = GetGameplayCamCoord()
+    local dir = rotationFromCam()
+    local dest = cam + (dir * (distance or 12.0))
+    local handle = StartExpensiveSynchronousShapeTestLosProbe(cam.x, cam.y, cam.z, dest.x, dest.y, dest.z, 1 + 16, PlayerPedId(), 7)
+    local _, hit, endCoords = GetShapeTestResult(handle)
+    if hit == 1 then
+        return endCoords
+    end
+    return dest
+end
+
+local function requestModel(model)
+    local hash = type(model) == 'number' and model or joaat(model)
+    if not IsModelInCdimage(hash) then
+        return nil
+    end
+    RequestModel(hash)
+    local timeout = GetGameTimer() + 5000
+    while not HasModelLoaded(hash) and GetGameTimer() < timeout do
+        Wait(10)
+    end
+    if not HasModelLoaded(hash) then
+        return nil
+    end
+    return hash
+end
+
+local function deletePreview()
+    if previewObject and DoesEntityExist(previewObject) then
+        DeleteObject(previewObject)
+    end
+    previewObject = nil
+end
+
+function Placement.Stop(silent)
+    Placement.active = false
+    deletePreview()
+    currentModel = nil
+    pendingBoothId = nil
+    SetNuiFocus(false, false)
+    if not silent then
+        Nui.OpenAdmin()
+    end
+end
+
+function Placement.Start(kind, model, boothId)
+    if Placement.active then
+        Placement.Stop(true)
+    end
+
+    pendingKind = kind or 'booth'
+    pendingBoothId = boothId
+    currentModel = model or (pendingKind == 'speaker' and Config.SpeakerModel or Config.DefaultModel)
+    heading = GetEntityHeading(PlayerPedId())
+    heightOffset = 0.0
+
+    local hash = requestModel(currentModel)
+    if not hash then
+        Framework.Notify('That prop model is not available on this server.', 'error')
+        Nui.OpenAdmin()
+        return
+    end
+
+    Nui.Close(true)
+    Wait(80)
+
+    local coords = raycastFromCamera(8.0)
+    previewObject = CreateObject(hash, coords.x, coords.y, coords.z, false, false, false)
+    SetEntityCollision(previewObject, false, false)
+    SetEntityAlpha(previewObject, 175, false)
+    FreezeEntityPosition(previewObject, true)
+    SetModelAsNoLongerNeeded(hash)
+
+    Placement.active = true
+    showInstructions()
+    Framework.Notify(Config.Locale.placement_help, 'inform')
+
+    CreateThread(function()
+        while Placement.active do
+            Wait(0)
+            DisableControlAction(0, 24, true)
+            DisableControlAction(0, 25, true)
+            DisableControlAction(0, 140, true)
+
+            local hit = raycastFromCamera(10.0)
+            if previewObject and DoesEntityExist(previewObject) then
+                SetEntityCoordsNoOffset(previewObject, hit.x, hit.y, hit.z + heightOffset, false, false, false)
+                SetEntityHeading(previewObject, heading)
+            end
+
+            if scaleform then
+                DrawScaleformMovieFullscreen(scaleform, 255, 255, 255, 255, 0)
+            end
+
+            if IsControlJustPressed(0, Config.Placement.rotateFast) then
+                heading = (heading + Config.Placement.rotateStep) % 360.0
+            elseif IsControlJustPressed(0, Config.Placement.rotateSlow) then
+                heading = (heading - Config.Placement.rotateStep) % 360.0
+            end
+
+            if IsControlPressed(0, Config.Placement.raise) then
+                heightOffset = heightOffset + Config.Placement.heightStep
+            elseif IsControlPressed(0, Config.Placement.lower) then
+                heightOffset = heightOffset - Config.Placement.heightStep
+            end
+
+            if IsControlJustReleased(0, Config.Placement.confirm) then
+                local coords = GetEntityCoords(previewObject)
+                local hdg = GetEntityHeading(previewObject)
+                local kindNow = pendingKind
+                local boothIdNow = pendingBoothId
+                local modelNow = currentModel
+                Placement.active = false
+                deletePreview()
+
+                if kindNow == 'speaker' then
+                    TriggerServerEvent('djbooth:addSpeaker', boothIdNow, DJ.Vec(coords))
+                    Framework.Notify(Config.Locale.speaker_placed, 'success')
+                    Wait(120)
+                    Nui.OpenAdmin()
+                else
+                    Nui.OpenCreate({
+                        coords = DJ.Vec(coords),
+                        heading = hdg,
+                        model = modelNow,
+                    })
+                end
+            elseif IsControlJustReleased(0, Config.Placement.cancel) then
+                Placement.Stop()
+            end
+        end
+    end)
+end
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() then
+        return
+    end
+    deletePreview()
+end)
