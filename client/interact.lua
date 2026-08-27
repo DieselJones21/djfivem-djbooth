@@ -113,76 +113,92 @@ function Interact.RegisterPoint(opts)
     local onUse = opts.onUse
     local canInteract = opts.canInteract or function() return true end
 
+    -- Do not pass job groups into target resources. Those filters hide the
+    -- prompt from admins and anyone whose job is not listed. canInteract +
+    -- the server already enforce access.
+    local added = false
+
     if GetResourceState(Config.Interact.resource) == 'started' then
-        local payload = {
-            coords = coords,
-            distance = Config.Interact.distance,
-            interactDst = Config.Interact.interactDst,
-            id = interactId,
-            options = {
-                {
-                    label = label,
-                    action = function()
-                        onUse()
-                    end,
-                    canInteract = canInteract,
+        local ok = pcall(function()
+            exports[Config.Interact.resource]:AddInteraction({
+                coords = coords,
+                distance = Config.Interact.distance,
+                interactDst = Config.Interact.interactDst,
+                id = interactId,
+                options = {
+                    {
+                        label = label,
+                        action = function()
+                            onUse()
+                        end,
+                        canInteract = canInteract,
+                    },
                 },
-            },
-        }
-        if opts.groups then
-            payload.groups = opts.groups
+            })
+        end)
+        if ok then
+            Interact.zones[id] = { kind = 'interact' }
+            added = true
         end
-        exports[Config.Interact.resource]:AddInteraction(payload)
-        Interact.zones[id] = { kind = 'interact' }
-        return
     end
 
-    if GetResourceState('ox_target') == 'started' then
-        local oxId = exports.ox_target:addSphereZone({
+    if not added and GetResourceState('ox_target') == 'started' then
+        local ok, oxId = pcall(function()
+            return exports.ox_target:addSphereZone({
+                coords = coords,
+                radius = Config.Interact.interactDst,
+                debug = false,
+                options = {
+                    {
+                        name = interactId,
+                        icon = icon,
+                        label = label,
+                        onSelect = onUse,
+                        canInteract = canInteract,
+                    },
+                },
+            })
+        end)
+        if ok and oxId then
+            Interact.zones[id] = { kind = 'ox', ox = oxId }
+            added = true
+        end
+    end
+
+    if not added and GetResourceState('qb-target') == 'started' then
+        local ok = pcall(function()
+            exports['qb-target']:AddCircleZone(interactId, coords, Config.Interact.interactDst, {
+                name = interactId,
+                debugPoly = false,
+                useZ = true,
+            }, {
+                options = {
+                    {
+                        icon = icon,
+                        label = label,
+                        action = onUse,
+                        canInteract = canInteract,
+                    },
+                },
+                distance = Config.Interact.interactDst,
+            })
+        end)
+        if ok then
+            Interact.zones[id] = { kind = 'qb' }
+            added = true
+        end
+    end
+
+    -- Keep a walk-up [E] prompt unless darktrovx/interact already owns E.
+    -- ox_target / qb-target are eye-aim, so players who just press E still need this.
+    if not added or (Interact.zones[id] and Interact.zones[id].kind ~= 'interact') then
+        Interact.native[id] = {
             coords = coords,
-            radius = Config.Interact.interactDst,
-            debug = false,
-            options = {
-                {
-                    name = interactId,
-                    icon = icon,
-                    label = label,
-                    groups = opts.groups,
-                    onSelect = onUse,
-                    canInteract = canInteract,
-                },
-            },
-        })
-        Interact.zones[id] = { kind = 'ox', ox = oxId }
-        return
+            label = label,
+            onUse = onUse,
+            canInteract = canInteract,
+        }
     end
-
-    if GetResourceState('qb-target') == 'started' then
-        exports['qb-target']:AddCircleZone(interactId, coords, Config.Interact.interactDst, {
-            name = interactId,
-            debugPoly = false,
-            useZ = true,
-        }, {
-            options = {
-                {
-                    icon = icon,
-                    label = label,
-                    action = onUse,
-                    canInteract = canInteract,
-                },
-            },
-            distance = Config.Interact.interactDst,
-        })
-        Interact.zones[id] = { kind = 'qb' }
-        return
-    end
-
-    Interact.native[id] = {
-        coords = coords,
-        label = label,
-        onUse = onUse,
-        canInteract = canInteract,
-    }
 end
 
 local function drawText3d(coords, text)
@@ -225,7 +241,7 @@ CreateThread(function()
 
         if closest and closestDist <= Config.Interact.nativeDistance and IsControlJustReleased(0, 38) then
             if closest.canInteract and not closest.canInteract() then
-                -- blocked
+                Framework.Notify(Config.Locale.booth_open_denied, 'error')
             elseif closest.onUse then
                 closest.onUse()
             else
