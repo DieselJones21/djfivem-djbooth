@@ -1,21 +1,21 @@
 # Lumina DJ Booth
 
-A premium FiveM DJ booth resource with a bright tablet UI, YouTube playback through [xsound](https://github.com/Xogy/xsound), saved songs, playlists, and in-game placement.
+A FiveM DJ booth resource with a dark charcoal + crimson tablet UI, YouTube playback through [xsound](https://github.com/Xogy/xsound), saved songs, playlists, portable speakers, and in-game placement.
 
 ## Features
 
 - **YouTube + direct HTTPS audio** — paste `youtube.com`, `youtu.be`, Shorts, or a direct `.mp3` / stream URL
-- **3D positional audio** via xsound, with optional extra speakers per booth
+- **Synced 3D audio** — one xsound stream per booth or speaker group, so every player hears the same clock without echo
 - **Full transport** — play, pause, resume, stop, skip, previous, seek, volume, hearing radius
 - **Queue** — add, reorder, play now, clear, shuffle, loop track / loop queue
 - **Save songs** to a personal library (persisted on the server)
 - **Playlists** — create, add tracks, play the whole set, or dump it into the queue
-- **Portable speakers** — handheld, big PA, and tripod as ox_inventory items; place them, change volume/range, make permanent, and group nearby speakers so they play in sync
+- **Portable speakers** — handheld, big PA, and tripod as inventory items; place them, change volume/range, make permanent, and group nearby speakers
 - **Interact E prompts** using [darktrovx/interact](https://github.com/darktrovx/interact), with ox_target / qb-target / native 3D text fallbacks
 - **`/djadmin`** — walk-up placement, job locks, teleport, edit, delete, add speakers
 - **`/dj`** — open the nearest booth you can use
 - **QBCore, Qbox, ESX, or standalone** — auto-detected
-- **Bright tablet UI** — Lumina OS, built to look like a physical iPad-style deck
+- **Dark tablet UI** — charcoal bezel, crimson/ember accents
 
 ## Dependencies
 
@@ -30,7 +30,7 @@ A premium FiveM DJ booth resource with a bright tablet UI, YouTube playback thro
 
 ## Install
 
-1. Drop this folder into `resources` as `djbooth` (or keep the repo name and ensure it matches `server.cfg`).
+1. Drop this folder into `resources`. Naming it `djbooth` is simplest.
 2. Install and start [xsound](https://github.com/Xogy/xsound).
 3. Install [interact](https://github.com/darktrovx/interact) if you want the E prompts.
 4. Add to `server.cfg`:
@@ -41,6 +41,8 @@ ensure interact
 ensure djbooth
 ```
 
+If the folder is still named `djfivem-djbooth`, use that name in `ensure`.
+
 5. Grant booth admin (for `/djadmin`):
 
 ```cfg
@@ -48,6 +50,18 @@ add_ace group.admin djbooth.admin allow
 ```
 
 QBCore `god` / `admin` and ESX `admin` / `superadmin` are also accepted. You can add extra identifiers in `config.lua`.
+
+## Persistence
+
+Booths, portable speakers, and libraries are written to:
+
+- `data/booths.json`
+- `data/speakers.json`
+- `data/library.json`
+
+Many hosted FX servers mount the resource folder **read-only**, so `SaveResourceFile` silently fails. Lumina also stores the same JSON in **resource KVP**. After a restart it loads the JSON file if it has records, otherwise the KVP backup.
+
+Place a booth, restart the resource, and it should still be there. If the file stays `[]` but the booth comes back, KVP is doing the work — that is expected on read-only hosts.
 
 ## Commands
 
@@ -76,9 +90,11 @@ GTA does not have a true camera-tripod PA. The tripod item uses the After Hours 
 
 1. Copy the three item blocks from `install/ox_inventory/items.lua` into `ox_inventory/data/items.lua`.
 2. Copy the PNGs from `install/ox_inventory/web/images/` into `ox_inventory/web/images/`.
-3. Restart `ox_inventory` then `djbooth`.
+3. Restart `ox_inventory` then this resource.
 
-QBCore / ESX usable items are registered automatically if those frameworks are running (you still need to add the items to your items list).
+The items **must** use `client.event = 'djbooth:useSpeakerItem'` (already in the install snippet). Do not use `client.export = 'djbooth.useHandheld'` unless this resource folder is literally named `djbooth` — ox_inventory looks up the **folder name**, not the fxmanifest `name`. Keep `consume = 0`; the item is removed when you confirm placement, not when you start aiming.
+
+QBCore / ESX usable items are registered automatically if those frameworks are running (you still need to add the items to your items list — see `install/qb-core/items.lua`).
 
 ### Using a speaker
 
@@ -86,7 +102,7 @@ QBCore / ESX usable items are registered automatically if those frameworks are r
 2. Walk up and press **E** for the speaker menu.
 3. Paste a YouTube link, set volume and range.
 4. **Permanent** keeps it through restarts and blocks pickup until you unlock it.
-5. **Group** links nearby speakers so they share one track; each speaker still has its own volume and range.
+5. **Group** links nearby speakers so they share **one** track; each speaker still has its own volume and range.
 
 Pickup returns the inventory item (only if it is not permanent).
 
@@ -105,9 +121,11 @@ Job field examples:
 - `unemployed` → that job, any grade
 - `nightclub:2, vanilla:0` → multiple jobs with minimum grades
 
-## YouTube
+## YouTube and audio sync
 
 xsound plays YouTube through the official iframe player. Some videos block embedding (age gate, copyright, embedding disabled) and will fail silently in xsound — try another link.
+
+Lumina plays **one** stream per booth id and per speaker group, then moves that stream to the closest emitter. That keeps the mix clear (no stacked iframes) and keeps every player on the same timestamp. The server heartbeat re-anchors elapsed time; clients only seek if they drift.
 
 Titles are resolved with YouTube oEmbed. To expand full playlist URLs (`list=`), set `Config.YouTubeApiKey` to a [YouTube Data API v3](https://console.cloud.google.com/apis/credentials) key.
 
@@ -120,11 +138,10 @@ See `config.lua` for everything. The important ones:
 - `Config.Framework` — `auto`, `qb`, `qbx`, `esx`, `standalone`
 - `Config.AdminAce` — default `djbooth.admin`
 - `Config.DefaultRadius` / `Config.MaxRadius`
+- `Config.AudioSyncDrift` / `Config.AudioFollowMs` — client resync
 - `Config.Models` — props offered in `/djadmin`
 - `Config.Interact` — prompt label and distances
 - `Config.MaxQueue`, `Config.MaxSavedSongs`, `Config.MaxPlaylists`
-
-Booths are saved to `data/booths.json`. Personal libraries are saved to `data/library.json`.
 
 ## Exports
 
@@ -135,6 +152,8 @@ exports.djbooth:GetBooths()
 exports.djbooth:GetBoothState(boothId)
 ```
 
+If the resource folder is not named `djbooth`, use that folder name in `exports['folder']:GetBooths()`.
+
 **Client**
 
 ```lua
@@ -144,6 +163,6 @@ exports.djbooth:GetBooths()
 
 ## Notes
 
-- After Hours / Tuners DJ desk models need those DLC packs on the server and clients. `prop_speaker_07` and `prop_boombox_01` are safe vanilla fallbacks.
+- After Hours / Tuners DJ desk models need those DLC packs on the server and clients. Missing DLC falls back to `prop_speaker_07` / `prop_boombox_01`.
 - Streamer mode in xsound mutes booth audio for that player.
 - If interact is missing, the script automatically tries ox_target, then qb-target, then a native `[E] Open DJ Booth` 3D prompt.

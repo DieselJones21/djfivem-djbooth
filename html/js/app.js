@@ -52,7 +52,7 @@
             paused: false,
             current: null,
             queue: [],
-            volume: 0.55,
+            volume: 0.68,
             radius: 40,
             loop: 'off',
             shuffle: false,
@@ -523,6 +523,10 @@
                     <p class="author">${esc(cur?.author || 'Paste a link to fill the room')}</p>
                     ${composer()}
                 </div>
+            </div>
+            <div class="page-head"><h1 style="font-size:20px">Up next</h1></div>
+            <div class="list" id="queueList">
+                ${state.playback.queue.length ? state.playback.queue.slice(0, 6).map((t, i) => trackRow(t, i, 'queue')).join('') : `<div class="empty"><div class="blob"></div>Queue is clear.</div>`}
             </div>
         `;
     }

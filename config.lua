@@ -50,7 +50,7 @@ Config.Interact = {
 
 -- Playback
 Config.MaxVolume = 1.0
-Config.DefaultVolume = 0.55
+Config.DefaultVolume = 0.68
 Config.MinRadius = 8.0
 Config.MaxRadius = 120.0
 Config.DefaultRadius = 40.0
@@ -62,6 +62,14 @@ Config.MaxBooths = 30
 Config.MaxSpeakers = 4
 Config.MaxUrlLength = 400
 Config.PlayCooldownMs = 750
+
+-- One xsound stream per booth/speaker group. Clients follow the closest
+-- emitter and re-seek only when they drift off the server clock.
+Config.AudioFollowMs = 250
+Config.AudioSyncDrift = 2.4
+Config.AudioSeekCooldownMs = 4500
+Config.AudioFollowHysteresis = 2.5
+Config.AudioHeartbeatMs = 8000
 
 --[[
     Portable speakers (ox_inventory / qb / esx usable items)

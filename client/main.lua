@@ -3,23 +3,6 @@ Booths = {
     objects = {},
 }
 
-local function modelHash(model)
-    return type(model) == 'number' and model or joaat(model)
-end
-
-local function loadModel(model)
-    local hash = modelHash(model)
-    if not IsModelInCdimage(hash) then
-        return nil
-    end
-    RequestModel(hash)
-    local timeout = GetGameTimer() + 4000
-    while not HasModelLoaded(hash) and GetGameTimer() < timeout do
-        Wait(10)
-    end
-    return HasModelLoaded(hash) and hash or nil
-end
-
 function Booths.Get(id)
     return Booths.list[id]
 end
@@ -48,21 +31,19 @@ function Booths.Spawn(booth)
         end
     end
 
-    local hash = loadModel(booth.model or Config.DefaultModel)
+    local hash, modelName = Props.LoadFirst(Props.Fallbacks(booth.model or Config.DefaultModel))
     if not hash then
-        hash = loadModel(Config.DefaultModel)
-    end
-    if not hash then
+        print(('[lumina-dj] Could not load booth model %s'):format(tostring(booth.model)))
         return
     end
+    booth.model = modelName or booth.model
 
     local coords = DJ.ToVector3(booth.coords)
-    local obj = CreateObject(hash, coords.x, coords.y, coords.z, false, false, false)
-    SetEntityHeading(obj, (booth.heading or 0) + 0.0)
-    FreezeEntityPosition(obj, true)
-    SetEntityCollision(obj, true, true)
-    SetEntityAsMissionEntity(obj, true, true)
+    local obj = Props.CreateFrozen(hash, coords, booth.heading)
     SetModelAsNoLongerNeeded(hash)
+    if not obj then
+        return
+    end
     Booths.objects[booth.id] = obj
 
     if booth.speakers then
@@ -72,14 +53,12 @@ function Booths.Spawn(booth)
             if old and DoesEntityExist(old) then
                 DeleteObject(old)
             end
-            local speakerHash = loadModel(booth.speakers[i].model or Config.SpeakerModel)
+            local speakerHash = Props.LoadFirst(Props.Fallbacks(booth.speakers[i].model or Config.SpeakerModel))
             if speakerHash then
-                local sc = DJ.ToVector3(booth.speakers[i])
-                local speaker = CreateObject(speakerHash, sc.x, sc.y, sc.z, false, false, false)
-                SetEntityHeading(speaker, (booth.speakers[i].heading or 0) + 0.0)
-                FreezeEntityPosition(speaker, true)
-                SetEntityCollision(speaker, true, true)
-                Booths.objects[key] = speaker
+                local speaker = Props.CreateFrozen(speakerHash, booth.speakers[i], booth.speakers[i].heading)
+                if speaker then
+                    Booths.objects[key] = speaker
+                end
                 SetModelAsNoLongerNeeded(speakerHash)
             end
         end
@@ -231,6 +210,8 @@ CreateThread(function()
     while GetResourceState('xsound') ~= 'started' do
         Wait(200)
     end
+    TriggerServerEvent('djbooth:playerReady')
+    Wait(2500)
     TriggerServerEvent('djbooth:playerReady')
 end)
 
