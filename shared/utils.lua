@@ -164,6 +164,42 @@ function DJ.ResolveModel(model, fallback)
     return model, fallback
 end
 
+function DJ.EachRecord(saved, fn)
+    if type(saved) ~= 'table' then
+        return 0
+    end
+    local n = 0
+    if saved[1] ~= nil then
+        for i = 1, #saved do
+            if type(saved[i]) == 'table' then
+                fn(saved[i])
+                n = n + 1
+            end
+        end
+        return n
+    end
+    for _, entry in pairs(saved) do
+        if type(entry) == 'table' and (entry.id or entry.coords) then
+            fn(entry)
+            n = n + 1
+        end
+    end
+    return n
+end
+
+function DJ.SlotId(value)
+    if value == nil then
+        return nil
+    end
+    if type(value) == 'number' then
+        return value
+    end
+    if type(value) == 'table' then
+        return tonumber(value.slot or value.slotId or value.id)
+    end
+    return tonumber(value)
+end
+
 function DJ.Clamp(value, min, max)
     value = tonumber(value) or min
     if value < min then

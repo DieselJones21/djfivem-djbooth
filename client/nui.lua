@@ -146,7 +146,11 @@ RegisterNUICallback('speakerPickup', function(_, cb)
 end)
 
 RegisterNUICallback('queue', function(data, cb)
-    TriggerServerEvent('djbooth:queue', Nui.boothId, data and data.action, data)
+    if Nui.mode == 'speaker' then
+        TriggerServerEvent('djbooth:speakerQueue', Nui.speakerId, data and data.action, data)
+    else
+        TriggerServerEvent('djbooth:queue', Nui.boothId, data and data.action, data)
+    end
     cb({ ok = true })
 end)
 

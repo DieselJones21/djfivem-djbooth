@@ -3,11 +3,29 @@ local States = {}
 local Library = { players = {} }
 local Cooldown = {}
 local OpenUi = {} -- src -> boothId
+BoothsReady = false
 
 math.randomseed(GetGameTimer() % 2147483647)
 
-local function now()
+local function wallClock()
     return os.time()
+end
+
+local function playClock()
+    return GetGameTimer()
+end
+
+local function elapsedOf(state)
+    if not state or not state.current then
+        return 0
+    end
+    if state.paused then
+        return state.elapsed or 0
+    end
+    if (state.startedAt or 0) <= 0 then
+        return state.elapsed or 0
+    end
+    return (state.elapsed or 0) + math.max(0, (playClock() - state.startedAt) / 1000.0)
 end
 
 local function countBooths()
@@ -16,23 +34,6 @@ local function countBooths()
         n = n + 1
     end
     return n
-end
-
-local function publicBooth(booth)
-    local copy = DJ.Copy(booth)
-    copy.state = States[booth.id]
-    return copy
-end
-
-local function publicList()
-    local list = {}
-    for _, booth in pairs(Booths) do
-        list[#list + 1] = publicBooth(booth)
-    end
-    table.sort(list, function(a, b)
-        return tostring(a.name) < tostring(b.name)
-    end)
-    return list
 end
 
 local function defaultState()
@@ -54,24 +55,28 @@ local function defaultState()
     }
 end
 
-local function elapsedOf(state)
-    if not state or not state.current then
-        return 0
-    end
-    if state.paused then
-        return state.elapsed or 0
-    end
-    if (state.startedAt or 0) <= 0 then
-        return state.elapsed or 0
-    end
-    return (state.elapsed or 0) + math.max(0, now() - state.startedAt)
-end
-
 local function snapshotState(state)
     local copy = DJ.Copy(state)
     copy.elapsed = elapsedOf(state)
     copy.seekTo = nil
     return copy
+end
+
+local function publicBooth(booth)
+    local copy = DJ.Copy(booth)
+    copy.state = snapshotState(States[booth.id] or defaultState())
+    return copy
+end
+
+local function publicList()
+    local list = {}
+    for _, booth in pairs(Booths) do
+        list[#list + 1] = publicBooth(booth)
+    end
+    table.sort(list, function(a, b)
+        return tostring(a.name) < tostring(b.name)
+    end)
+    return list
 end
 
 local function playerLibrary(src)
@@ -98,12 +103,6 @@ local function broadcastAudio(boothId)
     end
     local state = snapshotState(States[boothId] or defaultState())
     TriggerClientEvent('djbooth:audioState', -1, boothId, state)
-
-    for src, openId in pairs(OpenUi) do
-        if openId == boothId then
-            TriggerClientEvent('djbooth:audioState', src, boothId, state)
-        end
-    end
 end
 
 local function pushLibrary(src)
@@ -188,7 +187,7 @@ local function playTrack(boothId, track, fromQueue)
     state.paused = false
     state.elapsed = 0
     state.duration = tonumber(track.duration) or 0
-    state.startedAt = now()
+    state.startedAt = playClock()
     state.pauseStarted = 0
     state.seekTo = 0
     if not fromQueue then
@@ -347,8 +346,7 @@ end
 
 CreateThread(function()
     local saved = Storage.LoadBooths()
-    for i = 1, #saved do
-        local booth = saved[i]
+    DJ.EachRecord(saved, function(booth)
         if booth.id then
             booth.jobs = booth.jobs or {}
             booth.speakers = booth.speakers or {}
@@ -358,10 +356,19 @@ CreateThread(function()
             state.radius = booth.radius or Config.DefaultRadius
             States[booth.id] = state
         end
-    end
+    end)
     Library = Storage.LoadLibrary()
     Library.players = Library.players or {}
+    BoothsReady = true
     print(('[lumina-dj] Loaded %s booth(s).'):format(countBooths()))
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    if res ~= GetCurrentResourceName() then
+        return
+    end
+    persistBooths()
+    persistLibrary()
 end)
 
 AddEventHandler('playerDropped', function()
@@ -372,11 +379,20 @@ end)
 
 RegisterNetEvent('djbooth:playerReady', function()
     local src = source
-    TriggerClientEvent('djbooth:setAdmin', src, Permissions.IsAdmin(src))
-    TriggerClientEvent('djbooth:syncBooths', src, publicList())
-    if SpeakerSync and SpeakerSync.List then
-        TriggerClientEvent('djbooth:syncSpeakers', src, SpeakerSync.List())
-    end
+    CreateThread(function()
+        local timeout = GetGameTimer() + 8000
+        while not BoothsReady and GetGameTimer() < timeout do
+            Wait(50)
+        end
+        while SpeakerSync and SpeakerSync.loaded == false and GetGameTimer() < timeout do
+            Wait(50)
+        end
+        TriggerClientEvent('djbooth:setAdmin', src, Permissions.IsAdmin(src))
+        TriggerClientEvent('djbooth:syncBooths', src, publicList())
+        if SpeakerSync and SpeakerSync.List then
+            TriggerClientEvent('djbooth:syncSpeakers', src, SpeakerSync.List())
+        end
+    end)
 end)
 
 RegisterNetEvent('djbooth:openBooth', function(boothId)
@@ -437,7 +453,7 @@ RegisterNetEvent('djbooth:createBooth', function(data)
         volume = fields.volume,
         speakers = {},
         createdBy = Permissions.GetIdentifier(src),
-        createdAt = now(),
+        createdAt = wallClock(),
     }
     Booths[booth.id] = booth
     local state = defaultState()
@@ -602,7 +618,7 @@ RegisterNetEvent('djbooth:control', function(boothId, action, value)
             state.elapsed = elapsedOf(state)
             state.paused = true
             state.playing = false
-            state.pauseStarted = now()
+            state.pauseStarted = playClock()
             state.startedAt = 0
         end
     elseif action == 'resume' then
@@ -611,7 +627,7 @@ RegisterNetEvent('djbooth:control', function(boothId, action, value)
         end
         state.paused = false
         state.playing = true
-        state.startedAt = now()
+        state.startedAt = playClock()
     elseif action == 'stop' then
         state.current = nil
         state.playing = false
@@ -637,7 +653,7 @@ RegisterNetEvent('djbooth:control', function(boothId, action, value)
             stamp = math.min(stamp, math.max(0, state.duration - 1))
         end
         state.elapsed = stamp
-        state.startedAt = state.paused and 0 or now()
+        state.startedAt = state.paused and 0 or playClock()
         state.seekTo = stamp
         local snap = snapshotState(state)
         snap.seekTo = stamp
@@ -646,6 +662,7 @@ RegisterNetEvent('djbooth:control', function(boothId, action, value)
     elseif action == 'volume' then
         state.volume = DJ.Clamp(value, 0.0, Config.MaxVolume)
         booth.volume = state.volume
+        persistBooths()
     elseif action == 'radius' then
         state.radius = DJ.Clamp(value, Config.MinRadius, Config.MaxRadius)
         booth.radius = state.radius
@@ -775,7 +792,7 @@ RegisterNetEvent('djbooth:playlist', function(boothId, data)
             id = DJ.Uuid(),
             name = name:sub(1, 32),
             tracks = {},
-            createdAt = now(),
+            createdAt = wallClock(),
         }
         persistLibrary()
         Permissions.Notify(src, Config.Locale.playlist_created, 'success')
@@ -876,6 +893,9 @@ RegisterNetEvent('djbooth:trackEnded', function(boothId, token)
         return
     end
     local played = elapsedOf(state)
+    if played < 3.0 then
+        return
+    end
     if state.duration and state.duration > 5 and played < (state.duration - 4) then
         return
     end
@@ -896,6 +916,17 @@ RegisterNetEvent('djbooth:reportDuration', function(boothId, duration)
         state.duration = duration
         if state.current then
             state.current.duration = duration
+        end
+    end
+end)
+
+CreateThread(function()
+    while true do
+        Wait(Config.AudioHeartbeatMs or 8000)
+        for boothId, state in pairs(States) do
+            if state.current and not state.paused then
+                broadcastAudio(boothId)
+            end
         end
     end
 end)

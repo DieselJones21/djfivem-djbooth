@@ -3,24 +3,7 @@ PortableSpeakers = {
     objects = {},
 }
 
-local function loadModel(model, fallback)
-    local function try(name)
-        if not name then
-            return nil
-        end
-        local hash = type(name) == 'number' and name or joaat(name)
-        if not IsModelInCdimage(hash) then
-            return nil
-        end
-        RequestModel(hash)
-        local timeout = GetGameTimer() + 4000
-        while not HasModelLoaded(hash) and GetGameTimer() < timeout do
-            Wait(10)
-        end
-        return HasModelLoaded(hash) and hash or nil
-    end
-    return try(model) or try(fallback)
-end
+local lastPlaceAt = 0
 
 function PortableSpeakers.Get(id)
     return PortableSpeakers.list[id]
@@ -38,23 +21,24 @@ end
 function PortableSpeakers.Spawn(speaker)
     PortableSpeakers.Despawn(speaker.id)
     local def = Config.SpeakerItems[speaker.item] or {}
-    local hash = loadModel(speaker.model or def.model, def.fallback)
+    local hash = Props.LoadFirst(Props.Fallbacks(speaker.model or def.model, def.fallback))
     if not hash then
+        print(('[lumina-dj] Could not load speaker model %s'):format(tostring(speaker.model or speaker.item)))
+        PortableSpeakers.list[speaker.id] = speaker
         return
     end
-    local coords = DJ.ToVector3(speaker.coords)
-    local obj = CreateObject(hash, coords.x, coords.y, coords.z, false, false, false)
-    SetEntityHeading(obj, (speaker.heading or 0) + 0.0)
-    FreezeEntityPosition(obj, true)
-    SetEntityCollision(obj, true, true)
-    SetEntityAsMissionEntity(obj, true, true)
+    local obj = Props.CreateFrozen(hash, speaker.coords, speaker.heading)
     SetModelAsNoLongerNeeded(hash)
+    if not obj then
+        PortableSpeakers.list[speaker.id] = speaker
+        return
+    end
     PortableSpeakers.objects[speaker.id] = obj
     PortableSpeakers.list[speaker.id] = speaker
 
     Interact.RegisterPoint({
         id = speaker.id,
-        coords = coords + vector3(0.0, 0.0, 0.4),
+        coords = DJ.ToVector3(speaker.coords) + vector3(0.0, 0.0, 0.4),
         label = Config.SpeakerInteractLabel,
         icon = Config.SpeakerInteractIcon,
         onUse = function()
@@ -86,39 +70,93 @@ local function applyGroupAudio(groupId, members, state)
 end
 
 function PlacePortableSpeaker(itemName, slot)
+    local now = GetGameTimer()
+    if now - lastPlaceAt < 1000 then
+        return
+    end
     local def = Config.SpeakerItems[itemName]
     if not def then
         Framework.Notify('Unknown speaker item.', 'error')
         return
     end
+    lastPlaceAt = now
     Placement.Start('portable', def.model, nil, {
         item = itemName,
-        slot = slot,
+        slot = DJ.SlotId(slot),
         fallback = def.fallback,
     })
 end
 
+local function resolveItemUse(a, b, c)
+    if type(a) == 'string' and Config.SpeakerItems[a] then
+        return a, DJ.SlotId(b) or DJ.SlotId(c)
+    end
+    if type(a) == 'table' then
+        local name = a.name or a.item or a.itemName
+        local slot = a.slot or a.slotId
+        if type(b) == 'table' then
+            name = name or b.name
+            slot = b.slot or b.slotId or slot
+        elseif b ~= nil then
+            slot = b
+        end
+        return name, DJ.SlotId(slot)
+    end
+    return nil, nil
+end
+
+local function onUseSpeakerItem(a, b, c)
+    local name, slot = resolveItemUse(a, b, c)
+    if name then
+        PlacePortableSpeaker(name, slot)
+    end
+end
+
 RegisterNetEvent('djbooth:client:placeSpeaker', function(itemName, slot)
-    PlacePortableSpeaker(itemName, slot)
+    onUseSpeakerItem(itemName, slot)
+end)
+
+RegisterNetEvent('djbooth:useSpeakerItem', onUseSpeakerItem)
+AddEventHandler('djbooth:useSpeakerItem', onUseSpeakerItem)
+AddEventHandler('ox_inventory:usedItem', function(name, slotId, metadata)
+    local itemName = name
+    if type(name) == 'table' then
+        itemName = name.name or name.item or name.itemName
+        slotId = slotId or name.slot or name.slotId
+        if type(slotId) == 'table' then
+            metadata = slotId
+            slotId = name.slot
+        end
+    end
+    if Config.SpeakerItems[itemName] then
+        PlacePortableSpeaker(itemName, slotId or metadata)
+    end
 end)
 
 exports('useSpeaker', function(data, slot)
-    local name = nil
-    local slotId = nil
-    if type(data) == 'string' then
-        name = data
-    elseif type(data) == 'table' then
-        name = data.name or data.item or data.itemName
-        slotId = data.slot
-    end
-    if type(slot) == 'table' then
-        name = name or slot.name
-        slotId = slot.slot or slotId
-    elseif slot ~= nil then
-        slotId = slot
-    end
-    PlacePortableSpeaker(name, slotId)
+    onUseSpeakerItem(data, slot)
 end)
+
+local function oxExport(itemName)
+    return function(data, slot)
+        if GetResourceState('ox_inventory') == 'started' and type(data) == 'table' then
+            pcall(function()
+                exports.ox_inventory:useItem(data, function() end)
+            end)
+        end
+        local name = itemName
+        if type(data) == 'table' then
+            name = data.name or data.item or data.itemName or itemName
+        elseif type(data) == 'string' and Config.SpeakerItems[data] then
+            name = data
+        end
+        PlacePortableSpeaker(name, DJ.SlotId(slot) or DJ.SlotId(data))
+    end
+end
+
+exports('useHandheld', oxExport('lumina_speaker_handheld'))
+exports('useBigSpeaker', oxExport('lumina_speaker_big'))
+exports('useTripodSpeaker', oxExport('lumina_speaker_tripod'))
 
 RegisterNetEvent('djbooth:syncSpeakers', function(list)
     local keep = {}
@@ -153,6 +191,9 @@ RegisterNetEvent('djbooth:upsertSpeaker', function(speaker)
         return
     end
     PortableSpeakers.Spawn(speaker)
+    if speaker.state and speaker.state.current then
+        applyGroupAudio(speaker.groupId or speaker.id, { speaker }, speaker.state)
+    end
 end)
 
 RegisterNetEvent('djbooth:removeSpeaker', function(speakerId)
@@ -202,14 +243,4 @@ end)
 
 RegisterNetEvent('djbooth:closeUi', function()
     Nui.Close()
-end)
-
-exports('useHandheld', function(data, slot)
-    PlacePortableSpeaker('lumina_speaker_handheld', slot and (slot.slot or slot))
-end)
-exports('useBigSpeaker', function(data, slot)
-    PlacePortableSpeaker('lumina_speaker_big', slot and (slot.slot or slot))
-end)
-exports('useTripodSpeaker', function(data, slot)
-    PlacePortableSpeaker('lumina_speaker_tripod', slot and (slot.slot or slot))
 end)

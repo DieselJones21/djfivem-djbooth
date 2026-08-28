@@ -2,8 +2,14 @@ Storage = {}
 
 local resource = GetCurrentResourceName()
 
-local function readJson(fileName, fallback)
-    local raw = LoadResourceFile(resource, fileName)
+local function encodeList(list)
+    if type(list) ~= 'table' or #list == 0 then
+        return '[]'
+    end
+    return json.encode(list)
+end
+
+local function decode(raw, fallback)
     if not raw or raw == '' then
         return DJ.Copy(fallback)
     end
@@ -14,12 +20,77 @@ local function readJson(fileName, fallback)
     return decoded
 end
 
-local function writeJson(fileName, data)
-    SaveResourceFile(resource, fileName, json.encode(data), -1)
+local function readFile(fileName, fallback)
+    return decode(LoadResourceFile(resource, fileName), fallback)
+end
+
+local function writeFile(fileName, encoded)
+    local ok = SaveResourceFile(resource, fileName, encoded, -1)
+    if ok == true then
+        return true
+    end
+    ok = SaveResourceFile(resource, fileName, encoded, #encoded)
+    if ok == true then
+        return true
+    end
+    local path = GetResourcePath(resource)
+    if path and path ~= '' then
+        local ioOk, saved = pcall(function()
+            local handle = io.open(path .. '/' .. fileName, 'w')
+            if not handle then
+                return false
+            end
+            handle:write(encoded)
+            handle:close()
+            return true
+        end)
+        if ioOk and saved then
+            return true
+        end
+    end
+    return false
+end
+
+local function readKvp(key, fallback)
+    return decode(GetResourceKvpString(key), fallback)
+end
+
+local function writeKvp(key, encoded)
+    SetResourceKvp(key, encoded)
+end
+
+local function persist(fileName, kvpKey, list, label)
+    local encoded = encodeList(list)
+    writeKvp(kvpKey, encoded)
+    local saved = writeFile(fileName, encoded)
+    if not saved then
+        print(('[lumina-dj] %s folder is not writable; kept a KVP backup so data still survives restarts.'):format(label))
+    end
+    return true
+end
+
+local function loadMerged(fileName, kvpKey, fallback)
+    local fromFile = readFile(fileName, fallback)
+    local fileCount = 0
+    if type(fromFile) == 'table' then
+        if fromFile[1] ~= nil then
+            fileCount = #fromFile
+        else
+            for _, entry in pairs(fromFile) do
+                if type(entry) == 'table' then
+                    fileCount = fileCount + 1
+                end
+            end
+        end
+    end
+    if fileCount > 0 then
+        return fromFile
+    end
+    return readKvp(kvpKey, fallback)
 end
 
 function Storage.LoadBooths()
-    return readJson('data/booths.json', {})
+    return loadMerged('data/booths.json', 'lumina_booths', {})
 end
 
 function Storage.SaveBooths(booths)
@@ -32,19 +103,26 @@ function Storage.SaveBooths(booths)
     table.sort(list, function(a, b)
         return tostring(a.name) < tostring(b.name)
     end)
-    writeJson('data/booths.json', list)
+    persist('data/booths.json', 'lumina_booths', list, 'Booths')
+    print(('[lumina-dj] Saved %s booth(s).'):format(#list))
 end
 
 function Storage.LoadLibrary()
-    return readJson('data/library.json', { players = {} })
+    local data = loadMerged('data/library.json', 'lumina_library', { players = {} })
+    data.players = data.players or {}
+    return data
 end
 
 function Storage.SaveLibrary(library)
-    writeJson('data/library.json', library)
+    local encoded = json.encode(library or { players = {} })
+    writeKvp('lumina_library', encoded)
+    if not writeFile('data/library.json', encoded) then
+        print('[lumina-dj] Library folder is not writable; kept a KVP backup so data still survives restarts.')
+    end
 end
 
 function Storage.LoadSpeakers()
-    return readJson('data/speakers.json', {})
+    return loadMerged('data/speakers.json', 'lumina_speakers', {})
 end
 
 function Storage.SaveSpeakers(speakers)
@@ -54,5 +132,6 @@ function Storage.SaveSpeakers(speakers)
         copy.state = nil
         list[#list + 1] = copy
     end
-    writeJson('data/speakers.json', list)
+    persist('data/speakers.json', 'lumina_speakers', list, 'Speakers')
+    print(('[lumina-dj] Saved %s portable speaker(s).'):format(#list))
 end

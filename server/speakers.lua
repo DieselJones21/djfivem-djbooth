@@ -1,9 +1,14 @@
 local Speakers = {}
 local Groups = {} -- groupId -> { speakerIds = {}, state = {} }
 local OpenSpeaker = {} -- src -> speakerId
+SpeakerSync = { loaded = false }
 
-local function now()
+local function wallClock()
     return os.time()
+end
+
+local function playClock()
+    return GetGameTimer()
 end
 
 local function itemDef(name)
@@ -51,7 +56,7 @@ local function elapsedOf(state)
     if (state.startedAt or 0) <= 0 then
         return state.elapsed or 0
     end
-    return (state.elapsed or 0) + math.max(0, now() - state.startedAt)
+    return (state.elapsed or 0) + math.max(0, (playClock() - state.startedAt) / 1000.0)
 end
 
 local function snapshotState(state)
@@ -202,7 +207,7 @@ local function playOnGroup(groupId, track)
     state.paused = false
     state.elapsed = 0
     state.duration = tonumber(track and track.duration) or 0
-    state.startedAt = now()
+    state.startedAt = playClock()
     state.seekTo = 0
     broadcastGroup(groupId)
 end
@@ -260,17 +265,18 @@ local function advanceGroup(groupId, reason)
 end
 
 CreateThread(function()
-    Wait(250)
+    Wait(100)
     local saved = Storage.LoadSpeakers()
-    for i = 1, #saved do
-        local speaker = saved[i]
+    DJ.EachRecord(saved, function(speaker)
         if speaker.id then
             Speakers[speaker.id] = speaker
             speaker.groupId = speaker.groupId or speaker.id
             groupOf(speaker)
         end
-    end
+    end)
+    SpeakerSync.loaded = true
     print(('[lumina-dj] Loaded %s portable speaker(s).'):format(countSpeakers()))
+    TriggerClientEvent('djbooth:syncSpeakers', -1, SpeakerSync.List())
 end)
 
 RegisterNetEvent('djbooth:placePortableSpeaker', function(item, coords, heading, model, slot)
@@ -302,7 +308,7 @@ RegisterNetEvent('djbooth:placePortableSpeaker', function(item, coords, heading,
         radius = def.defaultRadius,
         permanent = false,
         owner = Permissions.GetIdentifier(src),
-        createdAt = now(),
+        createdAt = wallClock(),
     }
     speaker.groupId = speaker.id
     Speakers[speaker.id] = speaker
@@ -387,7 +393,7 @@ RegisterNetEvent('djbooth:speakerControl', function(speakerId, action, value)
         if not state.current then return end
         state.paused = false
         state.playing = true
-        state.startedAt = now()
+        state.startedAt = playClock()
     elseif action == 'stop' then
         stopGroup(gid)
         return
@@ -408,7 +414,7 @@ RegisterNetEvent('djbooth:speakerControl', function(speakerId, action, value)
             stamp = math.min(stamp, math.max(0, state.duration - 1))
         end
         state.elapsed = stamp
-        state.startedAt = state.paused and 0 or now()
+        state.startedAt = state.paused and 0 or playClock()
         state.seekTo = stamp
         local payload = {}
         local members = membersOf(gid)
@@ -548,6 +554,54 @@ RegisterNetEvent('djbooth:pickupSpeaker', function(speakerId)
     TriggerClientEvent('djbooth:closeUi', src)
 end)
 
+RegisterNetEvent('djbooth:speakerQueue', function(speakerId, action, data)
+    local src = source
+    local speaker = ensureAccess(src, speakerId)
+    if not speaker then
+        return
+    end
+    local group, gid = groupOf(speaker)
+    local state = group.state
+    state.queue = state.queue or {}
+    data = data or {}
+
+    if action == 'clear' then
+        state.queue = {}
+    elseif action == 'remove' then
+        local index = tonumber(data.index)
+        if index and state.queue[index] then
+            table.remove(state.queue, index)
+        end
+    elseif action == 'move' then
+        local from = tonumber(data.from)
+        local to = tonumber(data.to)
+        if from and to and state.queue[from] then
+            local track = table.remove(state.queue, from)
+            to = DJ.Clamp(to, 1, #state.queue + 1)
+            table.insert(state.queue, to, track)
+        end
+    elseif action == 'playIndex' then
+        local index = tonumber(data.index)
+        if index and state.queue[index] then
+            local track = table.remove(state.queue, index)
+            playOnGroup(gid, track)
+            return
+        end
+    elseif action == 'addTrack' then
+        local track = data.track
+        if type(track) == 'table' and DJ.IsValidMediaUrl(track.url) then
+            if #state.queue >= Config.MaxQueue then
+                Permissions.Notify(src, Config.Locale.queue_full, 'error')
+                return
+            end
+            track.id = track.id or DJ.Uuid()
+            state.queue[#state.queue + 1] = track
+        end
+    end
+
+    broadcastGroup(gid)
+end)
+
 RegisterNetEvent('djbooth:speakerEnded', function(rigId, token)
     local groupId = tostring(rigId or ''):gsub('^spk_', '')
     local group = Groups[groupId]
@@ -560,6 +614,13 @@ RegisterNetEvent('djbooth:speakerEnded', function(rigId, token)
     if group.state.paused then
         return
     end
+    local played = elapsedOf(group.state)
+    if played < 3.0 then
+        return
+    end
+    if group.state.duration and group.state.duration > 5 and played < (group.state.duration - 4) then
+        return
+    end
     advanceGroup(groupId, 'ended')
 end)
 
@@ -567,7 +628,12 @@ AddEventHandler('playerDropped', function()
     OpenSpeaker[source] = nil
 end)
 
-SpeakerSync = {}
+AddEventHandler('onResourceStop', function(res)
+    if res ~= GetCurrentResourceName() then
+        return
+    end
+    persist()
+end)
 
 function SpeakerSync.List()
     local list = {}
@@ -578,7 +644,65 @@ function SpeakerSync.List()
 end
 
 CreateThread(function()
-    Wait(800)
+    while true do
+        Wait(Config.AudioHeartbeatMs or 8000)
+        for gid, group in pairs(Groups) do
+            if group.state and group.state.current and not group.state.paused then
+                broadcastGroup(gid)
+            end
+        end
+    end
+end)
+
+exports('useSpeakerItem', function(event, item, inventory, slot)
+    if event ~= 'usingItem' then
+        return
+    end
+    local name = type(item) == 'table' and (item.name or item.itemName) or item
+    local src = inventory and (inventory.id or inventory.player)
+    if src and name and Config.SpeakerItems[name] then
+        TriggerClientEvent('djbooth:client:placeSpeaker', src, name, slot or (type(item) == 'table' and item.slot))
+    end
+end)
+
+local function speakerItemFilter()
+    local filter = {}
+    for name in pairs(Config.SpeakerItems) do
+        filter[name] = true
+    end
+    return filter
+end
+
+local function speakerNameFromPayload(payload)
+    if type(payload) ~= 'table' then
+        return nil, nil
+    end
+    local item = payload.item
+    local name = payload.itemName or payload.name
+    if type(item) == 'table' then
+        name = name or item.name or item.item or item.itemName
+    elseif type(item) == 'string' then
+        name = name or item
+    end
+    local slot = payload.slotId or payload.slot
+    if type(item) == 'table' then
+        slot = slot or item.slot or item.slotId
+    end
+    return name, DJ.SlotId(slot)
+end
+
+local oxHooksRegistered = false
+
+local function registerFrameworkItems()
+    if GetResourceState('qbx_core') == 'started' then
+        pcall(function()
+            for name in pairs(Config.SpeakerItems) do
+                exports.qbx_core:CreateUseableItem(name, function(source, item)
+                    TriggerClientEvent('djbooth:client:placeSpeaker', source, name, item and item.slot)
+                end)
+            end
+        end)
+    end
     if GetResourceState('qb-core') == 'started' then
         local ok, QBCore = pcall(function()
             return exports['qb-core']:GetCoreObject()
@@ -602,6 +726,38 @@ CreateThread(function()
                 end)
             end
         end
+    end
+    if GetResourceState('ox_inventory') == 'started' and not oxHooksRegistered then
+        local hooked = pcall(function()
+            local function onUsed(payload)
+                local name, slot = speakerNameFromPayload(payload)
+                local src = payload and payload.source
+                if src and name and Config.SpeakerItems[name] then
+                    TriggerClientEvent('djbooth:client:placeSpeaker', src, name, slot)
+                end
+            end
+            local opts = { itemFilter = speakerItemFilter() }
+            exports.ox_inventory:registerHook('usingItem', onUsed, opts)
+            exports.ox_inventory:registerHook('usedItem', onUsed, opts)
+        end)
+        if hooked then
+            oxHooksRegistered = true
+        end
+    end
+end
+
+CreateThread(function()
+    Wait(800)
+    registerFrameworkItems()
+end)
+
+AddEventHandler('onResourceStart', function(res)
+    if res == 'ox_inventory' then
+        oxHooksRegistered = false
+    end
+    if res == 'qb-core' or res == 'qbx_core' or res == 'es_extended' or res == 'ox_inventory' then
+        Wait(200)
+        registerFrameworkItems()
     end
 end)
 

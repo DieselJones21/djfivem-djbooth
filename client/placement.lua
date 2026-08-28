@@ -73,17 +73,9 @@ local function raycastFromCamera(distance)
 end
 
 local function requestModel(model)
-    local hash = type(model) == 'number' and model or joaat(model)
-    if not IsModelInCdimage(hash) then
-        return nil
-    end
-    RequestModel(hash)
-    local timeout = GetGameTimer() + 5000
-    while not HasModelLoaded(hash) and GetGameTimer() < timeout do
-        Wait(10)
-    end
-    if not HasModelLoaded(hash) then
-        return nil
+    local hash, loadedName = Props.LoadFirst(Props.Fallbacks(model))
+    if hash then
+        currentModel = loadedName or model
     end
     return hash
 end
@@ -128,8 +120,7 @@ function Placement.Start(kind, model, boothId, extra)
 
     local hash = requestModel(currentModel)
     if not hash and extra.fallback then
-        currentModel = extra.fallback
-        hash = requestModel(currentModel)
+        hash = requestModel(extra.fallback)
     end
     if not hash then
         Framework.Notify('That prop model is not available on this server.', 'error')
@@ -143,10 +134,14 @@ function Placement.Start(kind, model, boothId, extra)
     Wait(80)
 
     local coords = raycastFromCamera(8.0)
-    previewObject = CreateObject(hash, coords.x, coords.y, coords.z, false, false, false)
-    SetEntityCollision(previewObject, false, false)
-    SetEntityAlpha(previewObject, 175, false)
-    FreezeEntityPosition(previewObject, true)
+    previewObject = Props.CreateFrozen(hash, coords, heading, 175)
+    if not previewObject then
+        Framework.Notify('Could not spawn the placement preview.', 'error')
+        if pendingKind ~= 'portable' then
+            Nui.OpenAdmin()
+        end
+        return
+    end
     SetModelAsNoLongerNeeded(hash)
 
     Placement.active = true
@@ -183,30 +178,35 @@ function Placement.Start(kind, model, boothId, extra)
             end
 
             if IsControlJustReleased(0, Config.Placement.confirm) then
-                local coords = GetEntityCoords(previewObject)
-                local hdg = GetEntityHeading(previewObject)
-                local kindNow = pendingKind
-                local boothIdNow = pendingBoothId
-                local modelNow = currentModel
-                local itemNow = pendingItem
-                local slotNow = pendingSlot
-                Placement.active = false
-                pendingKind = nil
-                deletePreview()
-
-                if kindNow == 'speaker' then
-                    TriggerServerEvent('djbooth:addSpeaker', boothIdNow, DJ.Vec(coords))
-                    Framework.Notify(Config.Locale.speaker_placed, 'success')
-                    Wait(120)
-                    Nui.OpenAdmin()
-                elseif kindNow == 'portable' then
-                    TriggerServerEvent('djbooth:placePortableSpeaker', itemNow, DJ.Vec(coords), hdg, modelNow, slotNow)
+                if not previewObject or not DoesEntityExist(previewObject) then
+                    Framework.Notify('Placement preview was lost. Try again.', 'error')
+                    Placement.Stop()
                 else
-                    Nui.OpenCreate({
-                        coords = DJ.Vec(coords),
-                        heading = hdg,
-                        model = modelNow,
-                    })
+                    local coords = GetEntityCoords(previewObject)
+                    local hdg = GetEntityHeading(previewObject)
+                    local kindNow = pendingKind
+                    local boothIdNow = pendingBoothId
+                    local modelNow = currentModel
+                    local itemNow = pendingItem
+                    local slotNow = pendingSlot
+                    Placement.active = false
+                    pendingKind = nil
+                    deletePreview()
+
+                    if kindNow == 'speaker' then
+                        TriggerServerEvent('djbooth:addSpeaker', boothIdNow, DJ.Vec(coords))
+                        Framework.Notify(Config.Locale.speaker_placed, 'success')
+                        Wait(120)
+                        Nui.OpenAdmin()
+                    elseif kindNow == 'portable' then
+                        TriggerServerEvent('djbooth:placePortableSpeaker', itemNow, DJ.Vec(coords), hdg, modelNow, slotNow)
+                    else
+                        Nui.OpenCreate({
+                            coords = DJ.Vec(coords),
+                            heading = hdg,
+                            model = modelNow,
+                        })
+                    end
                 end
             elseif IsControlJustReleased(0, Config.Placement.cancel) then
                 Placement.Stop()

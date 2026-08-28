@@ -5,7 +5,7 @@ lua54 'yes'
 name 'djbooth'
 author 'Lumina'
 description 'Premium DJ booth system with YouTube playback, playlists, and in-game placement'
-version '1.0.0'
+version '1.1.0'
 
 shared_scripts {
     'config.lua',
@@ -14,6 +14,7 @@ shared_scripts {
 
 client_scripts {
     'client/framework.lua',
+    'client/props.lua',
     'client/audio.lua',
     'client/interact.lua',
     'client/placement.lua',
