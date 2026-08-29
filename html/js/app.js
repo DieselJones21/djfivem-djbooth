@@ -27,8 +27,8 @@
 
     const state = {
         tab: 'now',
-        appName: 'Lumina',
-        appTagline: 'Live Booth OS',
+        appName: 'DJ FIVEM',
+        appTagline: 'Booth OS',
         booth: null,
         playback: emptyPlayback(),
         songs: [],
@@ -697,7 +697,7 @@
                     ${cover(cur || { title: 'Idle' })}
                     <div>
                         <h4>${esc(cur?.title || 'Idle')}</h4>
-                        <p>${esc(cur?.author || 'Lumina')} · ${fmt(state.playback.elapsed)} / ${fmt(state.playback.duration)}</p>
+                        <p>${esc(cur?.author || 'DJ FIVEM')} · ${fmt(state.playback.elapsed)} / ${fmt(state.playback.duration)}</p>
                     </div>
                 </div>
                 <div class="transport">
@@ -904,8 +904,8 @@
 
     function applySpeaker(payload) {
         state.mode = 'speaker';
-        state.appName = payload.appName || 'Lumina';
-        state.appTagline = payload.appTagline || 'Speaker';
+        state.appName = payload.appName || 'DJ FIVEM';
+        state.appTagline = payload.appTagline || 'Booth OS';
         state.speaker = payload.speaker;
         state.playback = Object.assign(emptyPlayback(), payload.speaker?.state || payload.state || {});
         if (payload.speaker) {
@@ -924,8 +924,8 @@
 
     function applyBoothPayload(payload) {
         state.mode = 'booth';
-        state.appName = payload.appName || 'Lumina';
-        state.appTagline = payload.appTagline || 'Live Booth OS';
+        state.appName = payload.appName || 'DJ FIVEM';
+        state.appTagline = payload.appTagline || 'Booth OS';
         state.booth = payload.booth;
         state.speaker = null;
         state.playback = Object.assign(emptyPlayback(), payload.state || {});
@@ -941,7 +941,7 @@
 
     function applyAdmin(payload) {
         state.mode = 'admin';
-        state.appName = payload.appName || 'Lumina';
+        state.appName = payload.appName || 'DJ FIVEM';
         state.booths = payload.booths || [];
         state.models = payload.models || state.models;
         state.isAdmin = true;
@@ -974,7 +974,7 @@
             state.mode = 'create';
             state.draft = payload?.draft || {};
             state.models = payload?.models || state.models;
-            state.appName = payload?.appName || 'Lumina';
+            state.appName = payload?.appName || 'DJ FIVEM';
             state.tab = 'create';
             showStage();
             render();
@@ -1015,8 +1015,8 @@
         $('previewBar').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
         if (btn.dataset.preview === 'booth') {
             applyBoothPayload({
-                appName: 'Lumina',
-                appTagline: 'Live Booth OS',
+                appName: 'DJ FIVEM',
+                appTagline: 'Booth OS',
                 booth: PREVIEW.booth,
                 state: PREVIEW.playback,
                 songs: PREVIEW.songs,
@@ -1026,11 +1026,11 @@
             });
         }
         if (btn.dataset.preview === 'admin') {
-            applyAdmin({ appName: 'Lumina', booths: PREVIEW.booths, models: PREVIEW.models });
+            applyAdmin({ appName: 'DJ FIVEM', booths: PREVIEW.booths, models: PREVIEW.models });
         }
         if (btn.dataset.preview === 'speaker') {
             applySpeaker({
-                appName: 'Lumina',
+                appName: 'DJ FIVEM',
                 speaker: {
                     id: 'spk1',
                     label: 'Big Speaker',
@@ -1074,10 +1074,10 @@
             b.classList.toggle('active', b.dataset.preview === view);
         });
         if (view === 'admin') {
-            applyAdmin({ appName: 'Lumina', booths: PREVIEW.booths, models: PREVIEW.models });
+            applyAdmin({ appName: 'DJ FIVEM', booths: PREVIEW.booths, models: PREVIEW.models });
         } else if (view === 'speaker' || view === 'speakerMixer' || view === 'speakerGroup') {
             applySpeaker({
-                appName: 'Lumina',
+                appName: 'DJ FIVEM',
                 speaker: {
                     id: 'spk1',
                     label: 'Big Speaker',
@@ -1110,8 +1110,8 @@
             render();
         } else {
             applyBoothPayload({
-                appName: 'Lumina',
-                appTagline: 'Live Booth OS',
+                appName: 'DJ FIVEM',
+                appTagline: 'Booth OS',
                 booth: PREVIEW.booth,
                 state: PREVIEW.playback,
                 songs: PREVIEW.songs,

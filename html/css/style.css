@@ -160,6 +160,19 @@ body.fivem .stage.is-open {
     font-weight: 700;
     letter-spacing: 0.04em;
     color: #fff;
+    position: relative;
+    z-index: 2;
+}
+.status-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.status-mark {
+    width: 38px;
+    height: 28px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.25));
 }
 .status-pills { display: flex; gap: 10px; color: var(--muted); align-items: center; }
 .battery {
@@ -186,42 +199,74 @@ body.fivem .stage.is-open {
     min-height: 0;
     padding: 8px 12px 8px 12px;
     gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.screen-mark {
+    position: absolute;
+    right: -2%;
+    bottom: 4%;
+    width: 42%;
+    max-width: 420px;
+    aspect-ratio: 720 / 534;
+    background: url('../images/brand/djfivem-logo.png') center / contain no-repeat;
+    opacity: 0.07;
+    pointer-events: none;
+    z-index: 0;
+    filter: grayscale(0.1);
 }
 
 .sidebar {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 10px 8px 16px 10px;
+    gap: 14px;
+    padding: 6px 8px 16px 10px;
 }
-.brand { display: flex; gap: 12px; align-items: center; }
-.logo {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: var(--accent);
+.brand {
     display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    gap: 3px;
-    padding-bottom: 10px;
-    box-shadow: var(--glow);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
 }
-.logo span {
-    width: 5px;
-    background: #fff;
-    border-radius: 99px;
-    animation: eq 0.7s ease-in-out infinite alternate;
+.brand-plate {
+    position: relative;
+    background:
+        radial-gradient(120% 90% at 50% 28%, #1c1c1c 0%, #050505 72%);
+    border-radius: 18px;
+    padding: 8px 8px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 0 1px rgba(225, 6, 0, 0.2),
+        0 14px 28px rgba(0, 0, 0, 0.45),
+        0 0 22px rgba(225, 6, 0, 0.12);
+    overflow: hidden;
 }
-.logo span:nth-child(1) { height: 10px; animation-delay: 0s; }
-.logo span:nth-child(2) { height: 18px; animation-delay: 0.12s; }
-.logo span:nth-child(3) { height: 13px; animation-delay: 0.24s; }
-@keyframes eq {
-    from { transform: scaleY(0.55); }
-    to { transform: scaleY(1); }
+.brand-plate::before {
+    content: '';
+    position: absolute;
+    inset: -20% -10% auto;
+    height: 55%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
+    pointer-events: none;
 }
-.brand strong { display: block; font-family: var(--display); font-size: 22px; letter-spacing: -0.04em; color: #fff; }
-.brand small { color: var(--muted); font-weight: 600; font-size: 12px; }
+.brand-logo {
+    position: relative;
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+.brand-tag {
+    display: block;
+    text-align: center;
+    color: #ff8a70;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
 
 .nav { display: flex; flex-direction: column; gap: 6px; }
 .nav button {
@@ -552,6 +597,8 @@ input[type="range"]::-webkit-slider-thumb {
     background: rgba(255, 255, 255, 0.16);
     border-radius: 99px;
     margin: 4px auto 8px;
+    position: relative;
+    z-index: 2;
 }
 
 .modal-root:empty { display: none; }
@@ -616,4 +663,5 @@ input[type="range"]::-webkit-slider-thumb {
     .hero { grid-template-columns: 1fr; }
     .player-inner, .composer, .mixer, .form-grid { grid-template-columns: 1fr; }
     .span-2 { grid-column: auto; }
+    .status-mark { width: 48px; height: 34px; }
 }

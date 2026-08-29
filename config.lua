@@ -1,8 +1,8 @@
 Config = {}
 
 -- Display name shown in the tablet UI
-Config.AppName = 'Lumina'
-Config.AppTagline = 'Live Booth OS'
+Config.AppName = 'DJ FIVEM'
+Config.AppTagline = 'Booth OS'
 
 --[[
     Framework
@@ -164,12 +164,12 @@ Config.Placement = {
 }
 
 Config.Notify = {
-    prefix = 'Lumina',
+    prefix = 'DJ FIVEM',
 }
 
 Config.Locale = {
     no_permission = 'You do not have permission to do that.',
-    no_xsound = 'xsound is not running. Start it before Lumina DJ.',
+    no_xsound = 'xsound is not running. Start it before DJ FIVEM.',
     booth_open_denied = 'You cannot use this booth.',
     booth_missing = 'That booth no longer exists.',
     invalid_url = 'Paste a YouTube link or a direct HTTPS audio URL.',
