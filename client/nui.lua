@@ -85,7 +85,7 @@ function Nui.OpenSpeaker(payload)
     Nui.boothId = nil
     Nui.Focus()
     payload.appName = Config.AppName
-    payload.appTagline = 'Speaker'
+    payload.appTagline = Config.AppTagline
     payload.limits = {
         maxVolume = Config.MaxVolume,
         minRadius = (payload.speaker and payload.speaker.minRadius) or 4.0,

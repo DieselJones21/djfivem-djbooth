@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lumina DJ</title>
+    <title>DJ FIVEM Scripts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@320;400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
@@ -34,8 +34,12 @@
                     <span class="mic"></span>
                 </div>
                 <div class="screen" id="screen">
+                    <div class="screen-mark" aria-hidden="true"></div>
                     <header class="status">
-                        <span id="clock">12:40</span>
+                        <span class="status-left">
+                            <img class="status-mark" src="images/brand/djfivem-mark.png" alt="">
+                            <span id="clock">12:40</span>
+                        </span>
                         <span class="status-pills">
                             <span>5G</span>
                             <span class="battery">87%</span>
@@ -46,13 +50,11 @@
                     <div class="app" id="app">
                         <aside class="sidebar">
                             <div class="brand">
-                                <div class="logo" aria-hidden="true">
-                                    <span></span><span></span><span></span>
+                                <div class="brand-plate">
+                                    <img class="brand-logo" src="images/brand/djfivem-logo.png" alt="DJ FIVEM Scripts">
                                 </div>
-                                <div>
-                                    <strong id="appName">Lumina</strong>
-                                    <small id="appTag">Live Booth OS</small>
-                                </div>
+                                <small id="appTag" class="brand-tag">Booth OS</small>
+                                <strong id="appName" hidden>DJ FIVEM</strong>
                             </div>
 
                             <nav class="nav" id="nav"></nav>

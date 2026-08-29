@@ -3,8 +3,8 @@ game 'gta5'
 lua54 'yes'
 
 name 'djbooth'
-author 'Lumina'
-description 'Premium DJ booth system with YouTube playback, playlists, and in-game placement'
+author 'DJ FIVEM Scripts'
+description 'DJ FIVEM Scripts — DJ booth system with YouTube playback, playlists, and in-game placement'
 version '1.1.0'
 
 shared_scripts {
@@ -37,6 +37,7 @@ files {
     'html/index.html',
     'html/css/style.css',
     'html/js/app.js',
+    'html/images/brand/*.png',
     'html/images/items/*.png',
 }
 
