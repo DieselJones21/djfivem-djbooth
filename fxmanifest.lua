@@ -3,9 +3,9 @@ game 'gta5'
 lua54 'yes'
 
 name 'djbooth'
-author 'DJ FIVEM Scripts'
-description 'DJ FIVEM Scripts — DJ booth system with YouTube playback, playlists, and in-game placement'
-version '1.1.0'
+author 'Rebel Roleplay'
+description 'Rebel Roleplay DJ booth system with YouTube playback, playlists, and in-game placement'
+version '1.2.0'
 
 shared_scripts {
     'config.lua',
@@ -37,7 +37,7 @@ files {
     'html/index.html',
     'html/css/style.css',
     'html/js/app.js',
-    'html/images/brand/*.png',
+    'html/images/brand/*',
     'html/images/items/*.png',
 }
 

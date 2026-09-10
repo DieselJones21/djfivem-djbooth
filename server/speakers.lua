@@ -648,7 +648,12 @@ CreateThread(function()
         Wait(Config.AudioHeartbeatMs or 8000)
         for gid, group in pairs(Groups) do
             if group.state and group.state.current and not group.state.paused then
-                broadcastGroup(gid)
+                TriggerClientEvent('djbooth:speakerTick', -1, gid, {
+                    elapsed = elapsedOf(group.state),
+                    duration = group.state.duration or 0,
+                    playToken = group.state.playToken,
+                    paused = false,
+                })
             end
         end
     end

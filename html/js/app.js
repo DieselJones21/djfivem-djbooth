@@ -27,8 +27,9 @@
 
     const state = {
         tab: 'now',
-        appName: 'DJ FIVEM',
-        appTagline: 'Booth OS',
+        appName: 'Rebel Roleplay',
+        appTagline: 'DJ Booth',
+        adminCommand: 'boothadmin',
         booth: null,
         playback: emptyPlayback(),
         songs: [],
@@ -179,8 +180,10 @@
     }
 
     function setClock() {
+        const clock = $('clock');
+        if (!clock || !isStageOpen()) return;
         const d = new Date();
-        $('clock').textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        clock.textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
 
     function isStageOpen() {
@@ -276,7 +279,7 @@
         const jobs = (state.booth?.jobs || []).map((j) => j.name || j).join(', ');
         $('boothMeta').textContent = state.booth
             ? `${jobs || 'Public'} · ${Math.round(state.playback.radius || state.booth.radius || 0)}m`
-            : 'Use /djadmin to place a booth';
+            : `Use /${state.adminCommand || 'boothadmin'} to place a booth`;
     }
 
     function composer() {
@@ -346,7 +349,7 @@
                 <div>
                     <p class="eyebrow">Session</p>
                     <h1>Now Playing</h1>
-                    <p>Drop a YouTube link and run the room from this tablet.</p>
+                    <p>Paste a YouTube link and run the room from this deck.</p>
                 </div>
             </div>
             <div class="hero">
@@ -613,7 +616,7 @@
                 <div>
                     <p class="eyebrow">Staff</p>
                     <h1>Booth admin</h1>
-                    <p>Place desks in the world, lock them to jobs, and add extra speakers.</p>
+                    <p>Place decks in the world, lock them to jobs, and add extra speakers. Command is /${esc(state.adminCommand || 'boothadmin')}.</p>
                 </div>
                 <div class="admin-top">
                     <select class="select" id="modelSelect">
@@ -680,7 +683,7 @@
         if (state.mode === 'admin' || state.mode === 'create') {
             $('player').innerHTML = `
                 <div class="player-inner">
-                    <div class="now-mini"><div class="cover cover-fallback" style="--h:210"></div><div><h4>Admin tablet</h4><p>Place booths anywhere in the city</p></div></div>
+                    <div class="now-mini"><div class="cover cover-fallback" style="--h:210"></div><div><h4>Admin tablet</h4><p>/${esc(state.adminCommand || 'boothadmin')} · place booths anywhere</p></div></div>
                     <div></div>
                     <div style="text-align:right"><button class="btn btn-ghost" id="closeUi">Close</button></div>
                 </div>
@@ -697,7 +700,7 @@
                     ${cover(cur || { title: 'Idle' })}
                     <div>
                         <h4>${esc(cur?.title || 'Idle')}</h4>
-                        <p>${esc(cur?.author || 'DJ FIVEM')} · ${fmt(state.playback.elapsed)} / ${fmt(state.playback.duration)}</p>
+                        <p id="nowMiniTime">${esc(cur?.author || 'Rebel Roleplay')} · ${fmt(state.playback.elapsed)} / ${fmt(state.playback.duration)}</p>
                     </div>
                 </div>
                 <div class="transport">
@@ -710,9 +713,9 @@
                 </div>
                 <div>
                     <div class="progress">
-                        <span>${fmt(state.playback.elapsed)}</span>
+                        <span id="elapsedLabel">${fmt(state.playback.elapsed)}</span>
                         <div class="bar" id="seekBar"><i style="width:${pct}%"></i></div>
-                        <span>${fmt(state.playback.duration)}</span>
+                        <span id="durationLabel">${fmt(state.playback.duration)}</span>
                     </div>
                     <div style="text-align:right;margin-top:8px"><button class="btn btn-ghost" id="closeUi">Close</button></div>
                 </div>
@@ -877,6 +880,42 @@
         });
     }
 
+    function playbackSignature(playback) {
+        const p = playback || {};
+        const current = p.current || {};
+        const queue = p.queue || [];
+        return [
+            p.playing ? 1 : 0,
+            p.paused ? 1 : 0,
+            p.loop || 'off',
+            p.shuffle ? 1 : 0,
+            current.id || current.url || '',
+            current.title || '',
+            queue.length,
+            queue[0] && (queue[0].id || queue[0].url) || '',
+            queue[queue.length - 1] && (queue[queue.length - 1].id || queue[queue.length - 1].url) || '',
+            Math.round((p.volume || 0) * 100),
+            Math.round(p.radius || 0),
+        ].join('|');
+    }
+
+    function patchProgress() {
+        const elapsed = state.playback.elapsed;
+        const duration = state.playback.duration;
+        const bar = document.querySelector('#seekBar i');
+        if (bar && duration) {
+            bar.style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
+        }
+        const elapsedEl = document.getElementById('elapsedLabel');
+        const durationEl = document.getElementById('durationLabel');
+        if (elapsedEl) elapsedEl.textContent = fmt(elapsed);
+        if (durationEl) durationEl.textContent = fmt(duration);
+        const miniTime = document.getElementById('nowMiniTime');
+        if (miniTime) {
+            miniTime.textContent = `${state.playback.current?.author || 'Rebel Roleplay'} · ${fmt(elapsed)} / ${fmt(duration)}`;
+        }
+    }
+
     function render() {
         if (!isStageOpen()) return;
         if (state.mode === 'create') state.tab = 'create';
@@ -900,12 +939,14 @@
         page.innerHTML = (pages[state.tab] || renderNow)();
         bindPage();
         renderPlayer();
+        state._sig = playbackSignature(state.playback);
     }
 
     function applySpeaker(payload) {
         state.mode = 'speaker';
-        state.appName = payload.appName || 'DJ FIVEM';
-        state.appTagline = payload.appTagline || 'Booth OS';
+        state.appName = payload.appName || 'Rebel Roleplay';
+        state.appTagline = payload.appTagline || 'DJ Booth';
+        state.adminCommand = payload.adminCommand || state.adminCommand || 'boothadmin';
         state.speaker = payload.speaker;
         state.playback = Object.assign(emptyPlayback(), payload.speaker?.state || payload.state || {});
         if (payload.speaker) {
@@ -924,8 +965,9 @@
 
     function applyBoothPayload(payload) {
         state.mode = 'booth';
-        state.appName = payload.appName || 'DJ FIVEM';
-        state.appTagline = payload.appTagline || 'Booth OS';
+        state.appName = payload.appName || 'Rebel Roleplay';
+        state.appTagline = payload.appTagline || 'DJ Booth';
+        state.adminCommand = payload.adminCommand || state.adminCommand || 'boothadmin';
         state.booth = payload.booth;
         state.speaker = null;
         state.playback = Object.assign(emptyPlayback(), payload.state || {});
@@ -941,7 +983,8 @@
 
     function applyAdmin(payload) {
         state.mode = 'admin';
-        state.appName = payload.appName || 'DJ FIVEM';
+        state.appName = payload.appName || 'Rebel Roleplay';
+        state.adminCommand = payload.adminCommand || state.adminCommand || 'boothadmin';
         state.booths = payload.booths || [];
         state.models = payload.models || state.models;
         state.isAdmin = true;
@@ -956,6 +999,7 @@
         if (action === 'openBooth') applyBoothPayload(payload || {});
         if (action === 'openSpeaker') applySpeaker(payload || {});
         if (action === 'syncSpeaker') {
+            const before = state._sig;
             if (payload?.speaker) {
                 state.speaker = payload.speaker;
                 if (payload.speaker.state) {
@@ -967,14 +1011,19 @@
             if (payload?.state) state.playback = Object.assign(state.playback, payload.state);
             if (payload?.nearby) state.nearby = payload.nearby;
             if (typeof payload?.canPickup === 'boolean') state.canPickup = payload.canPickup;
-            render();
+            if (before && playbackSignature(state.playback) === before && !payload?.nearby) {
+                patchProgress();
+            } else {
+                render();
+            }
         }
         if (action === 'openAdmin') applyAdmin(payload || {});
         if (action === 'openCreate') {
             state.mode = 'create';
             state.draft = payload?.draft || {};
             state.models = payload?.models || state.models;
-            state.appName = payload?.appName || 'DJ FIVEM';
+            state.appName = payload?.appName || 'Rebel Roleplay';
+            state.adminCommand = payload?.adminCommand || state.adminCommand || 'boothadmin';
             state.tab = 'create';
             showStage();
             render();
@@ -982,7 +1031,11 @@
         if (action === 'syncState') {
             if (payload?.booth) state.booth = payload.booth;
             if (payload?.state) state.playback = Object.assign(state.playback, payload.state);
-            render();
+            if (state._sig && playbackSignature(state.playback) === state._sig) {
+                patchProgress();
+            } else {
+                render();
+            }
         }
         if (action === 'syncLibrary') {
             state.songs = payload?.songs || state.songs;
@@ -992,10 +1045,7 @@
         if (action === 'progress') {
             state.playback.elapsed = payload.elapsed || 0;
             state.playback.duration = payload.duration || state.playback.duration;
-            const bar = document.querySelector('#seekBar i');
-            if (bar && state.playback.duration) {
-                bar.style.width = `${Math.min(100, (state.playback.elapsed / state.playback.duration) * 100)}%`;
-            }
+            patchProgress();
         }
         if (action === 'close') hideStage();
     });
@@ -1015,8 +1065,9 @@
         $('previewBar').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
         if (btn.dataset.preview === 'booth') {
             applyBoothPayload({
-                appName: 'DJ FIVEM',
-                appTagline: 'Booth OS',
+                appName: 'Rebel Roleplay',
+                appTagline: 'DJ Booth',
+                adminCommand: 'boothadmin',
                 booth: PREVIEW.booth,
                 state: PREVIEW.playback,
                 songs: PREVIEW.songs,
@@ -1026,11 +1077,13 @@
             });
         }
         if (btn.dataset.preview === 'admin') {
-            applyAdmin({ appName: 'DJ FIVEM', booths: PREVIEW.booths, models: PREVIEW.models });
+            applyAdmin({ appName: 'Rebel Roleplay', adminCommand: 'boothadmin', booths: PREVIEW.booths, models: PREVIEW.models });
         }
         if (btn.dataset.preview === 'speaker') {
             applySpeaker({
-                appName: 'DJ FIVEM',
+                appName: 'Rebel Roleplay',
+                appTagline: 'DJ Booth',
+                adminCommand: 'boothadmin',
                 speaker: {
                     id: 'spk1',
                     label: 'Big Speaker',
@@ -1074,10 +1127,12 @@
             b.classList.toggle('active', b.dataset.preview === view);
         });
         if (view === 'admin') {
-            applyAdmin({ appName: 'DJ FIVEM', booths: PREVIEW.booths, models: PREVIEW.models });
+            applyAdmin({ appName: 'Rebel Roleplay', adminCommand: 'boothadmin', booths: PREVIEW.booths, models: PREVIEW.models });
         } else if (view === 'speaker' || view === 'speakerMixer' || view === 'speakerGroup') {
             applySpeaker({
-                appName: 'DJ FIVEM',
+                appName: 'Rebel Roleplay',
+                appTagline: 'DJ Booth',
+                adminCommand: 'boothadmin',
                 speaker: {
                     id: 'spk1',
                     label: 'Big Speaker',
@@ -1110,8 +1165,9 @@
             render();
         } else {
             applyBoothPayload({
-                appName: 'DJ FIVEM',
-                appTagline: 'Booth OS',
+                appName: 'Rebel Roleplay',
+                appTagline: 'DJ Booth',
+                adminCommand: 'boothadmin',
                 booth: PREVIEW.booth,
                 state: PREVIEW.playback,
                 songs: PREVIEW.songs,

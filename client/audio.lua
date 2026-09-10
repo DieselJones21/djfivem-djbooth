@@ -46,8 +46,8 @@ local function samePoint(a, b)
     return #(a.coords - b.coords) < 0.2
 end
 
-local function closestPoint(points, last)
-    local pos = GetEntityCoords(PlayerPedId())
+local function closestPoint(points, last, pos)
+    pos = pos or GetEntityCoords(PlayerPedId())
     local best, bestDist
     local lastLive, lastDist
     for i = 1, #points do
@@ -85,6 +85,10 @@ local function applyPoint(entry, point)
     end
     local volume = DJ.Clamp(point.volume or Config.DefaultVolume, 0.0, Config.MaxVolume)
     local radius = DJ.Clamp(point.radius or Config.DefaultRadius, 1.0, Config.MaxRadius)
+    if entry.lastPoint and samePoint(entry.lastPoint, point)
+        and entry.lastVolume == volume and entry.lastRadius == radius then
+        return
+    end
     pcall(function()
         xs:Position(entry.name, point.coords)
         xs:Distance(entry.name, radius + 0.0)
@@ -94,6 +98,8 @@ local function applyPoint(entry, point)
         end
     end)
     entry.lastPoint = point
+    entry.lastVolume = volume
+    entry.lastRadius = radius
 end
 
 local function applyPause(entry, paused)
@@ -274,6 +280,25 @@ function Audio.Timestamp(rigId)
     return elapsed, duration
 end
 
+function Audio.Tick(rigId, tick)
+    local entry = Audio.rigs[rigId]
+    if not entry or type(tick) ~= 'table' then
+        return
+    end
+    if tick.playToken and entry.token and tick.playToken ~= entry.token then
+        return
+    end
+    entry.elapsed = tonumber(tick.elapsed) or entry.elapsed
+    if tick.duration then
+        entry.duration = tick.duration
+    end
+    if tick.paused ~= nil then
+        entry.paused = tick.paused and true or false
+        applyPause(entry, entry.paused)
+    end
+    entry.receivedAt = GetGameTimer()
+end
+
 CreateThread(function()
     while true do
         local wait = Config.AudioFollowMs or 250
@@ -282,14 +307,18 @@ CreateThread(function()
             local drift = Config.AudioSyncDrift or 2.4
             local seekCd = Config.AudioSeekCooldownMs or 4500
             local now = GetGameTimer()
+            local pos = GetEntityCoords(PlayerPedId())
             for rigId, entry in pairs(Audio.rigs) do
                 if entry.points and entry.points[1] then
-                    applyPoint(entry, closestPoint(entry.points, entry.lastPoint))
+                    applyPoint(entry, closestPoint(entry.points, entry.lastPoint, pos))
                     pcall(function()
                         if not xs:soundExists(entry.name) then
                             return
                         end
-                        xs:setSoundLoop(entry.name, false)
+                        if not entry.loopForcedOff then
+                            xs:setSoundLoop(entry.name, false)
+                            entry.loopForcedOff = true
+                        end
                         if entry.paused then
                             return
                         end
