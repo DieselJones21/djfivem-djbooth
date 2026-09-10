@@ -259,6 +259,15 @@
         $('nav').querySelectorAll('button').forEach((btn) => {
             btn.addEventListener('click', () => {
                 if (btn.dataset.tab === 'admin' && state.mode !== 'admin' && state.mode !== 'create') {
+                    if (!isFiveM) {
+                        applyAdmin({
+                            appName: state.appName,
+                            adminCommand: state.adminCommand,
+                            booths: state.booths.length ? state.booths : PREVIEW.booths,
+                            models: state.models.length ? state.models : PREVIEW.models,
+                        });
+                        return;
+                    }
                     nui('refreshAdmin');
                     return;
                 }
