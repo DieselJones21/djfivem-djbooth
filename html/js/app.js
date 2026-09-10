@@ -1061,6 +1061,13 @@
 
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
+        if (!isFiveM) {
+            if ($('modalRoot').innerHTML) {
+                e.preventDefault();
+                $('modalRoot').innerHTML = '';
+            }
+            return;
+        }
         e.preventDefault();
         if (isStageOpen()) hideStage();
         nui('close');
