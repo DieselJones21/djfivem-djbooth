@@ -1,6 +1,6 @@
-# Lumina DJ Booth
+# Rebel Roleplay DJ Booth
 
-A FiveM DJ booth resource with a dark charcoal + crimson tablet UI, YouTube playback through [xsound](https://github.com/Xogy/xsound), saved songs, playlists, portable speakers, and in-game placement.
+A FiveM DJ booth resource with a chrome + crimson Rebel Roleplay tablet UI, YouTube playback through [xsound](https://github.com/Xogy/xsound), saved songs, playlists, portable speakers, and in-game placement.
 
 ## Features
 
@@ -12,10 +12,10 @@ A FiveM DJ booth resource with a dark charcoal + crimson tablet UI, YouTube play
 - **Playlists** — create, add tracks, play the whole set, or dump it into the queue
 - **Portable speakers** — handheld, big PA, and tripod as inventory items; place them, change volume/range, make permanent, and group nearby speakers
 - **Interact E prompts** using [darktrovx/interact](https://github.com/darktrovx/interact), with ox_target / qb-target / native 3D text fallbacks
-- **`/djadmin`** — walk-up placement, job locks, teleport, edit, delete, add speakers
+- **`/boothadmin`** — walk-up placement, job locks, teleport, edit, delete, add speakers (not `/djadmin`, so it will not clash with script managers)
 - **`/dj`** — open the nearest booth you can use
 - **QBCore, Qbox, ESX, or standalone** — auto-detected
-- **Dark tablet UI** — charcoal bezel, crimson/ember accents
+- **Rebel Roleplay tablet UI** — chrome lettering, crimson/gold accents, cowboy branding
 
 ## Dependencies
 
@@ -43,7 +43,7 @@ ensure djbooth
 
 If the folder is still named `djfivem-djbooth`, use that name in `ensure`.
 
-5. Grant booth admin (for `/djadmin`):
+5. Grant booth admin (for `/boothadmin`):
 
 ```cfg
 add_ace group.admin djbooth.admin allow
@@ -59,7 +59,7 @@ Booths, portable speakers, and libraries are written to:
 - `data/speakers.json`
 - `data/library.json`
 
-Many hosted FX servers mount the resource folder **read-only**, so `SaveResourceFile` silently fails. Lumina also stores the same JSON in **resource KVP**. After a restart it loads the JSON file if it has records, otherwise the KVP backup.
+Many hosted FX servers mount the resource folder **read-only**, so `SaveResourceFile` silently fails. The resource also stores the same JSON in **resource KVP**. After a restart it loads the JSON file if it has records, otherwise the KVP backup.
 
 Place a booth, restart the resource, and it should still be there. If the file stays `[]` but the booth comes back, KVP is doing the work — that is expected on read-only hosts.
 
@@ -67,7 +67,7 @@ Place a booth, restart the resource, and it should still be there. If the file s
 
 | Command | Who | What |
 | --- | --- | --- |
-| `/djadmin` | Admins | Opens the placement tablet |
+| `/boothadmin` | Admins | Opens the placement tablet |
 | `/dj` | Anyone with booth access | Opens the nearest booth |
 | `/givespeaker handheld\|big\|tripod [id]` | Admins | Gives a speaker item |
 | `/placespeaker handheld\|big\|tripod` | Admins | Place a speaker without consuming an item |
@@ -108,7 +108,7 @@ Pickup returns the inventory item (only if it is not permanent).
 
 ## Placing a booth
 
-1. Run `/djadmin`
+1. Run `/boothadmin`
 2. Pick a prop model
 3. Click **Place booth**
 4. Aim at the ground — **scroll** rotates, **arrows** raise/lower, **E** confirms, **X** cancels
@@ -125,7 +125,7 @@ Job field examples:
 
 xsound plays YouTube through the official iframe player. Some videos block embedding (age gate, copyright, embedding disabled) and will fail silently in xsound — try another link.
 
-Lumina plays **one** stream per booth id and per speaker group, then moves that stream to the closest emitter. That keeps the mix clear (no stacked iframes) and keeps every player on the same timestamp. The server heartbeat re-anchors elapsed time; clients only seek if they drift.
+The resource plays **one** stream per booth id and per speaker group, then moves that stream to the closest emitter. That keeps the mix clear (no stacked iframes) and keeps every player on the same timestamp. The server heartbeat re-anchors elapsed time without resending the full queue; clients only seek if they drift.
 
 Titles are resolved with YouTube oEmbed. To expand full playlist URLs (`list=`), set `Config.YouTubeApiKey` to a [YouTube Data API v3](https://console.cloud.google.com/apis/credentials) key.
 
@@ -139,7 +139,7 @@ See `config.lua` for everything. The important ones:
 - `Config.AdminAce` — default `djbooth.admin`
 - `Config.DefaultRadius` / `Config.MaxRadius`
 - `Config.AudioSyncDrift` / `Config.AudioFollowMs` — client resync
-- `Config.Models` — props offered in `/djadmin`
+- `Config.Models` — props offered in `/boothadmin`
 - `Config.Interact` — prompt label and distances
 - `Config.MaxQueue`, `Config.MaxSavedSongs`, `Config.MaxPlaylists`
 

@@ -1,6 +1,7 @@
 Booths = {
     list = {},
     objects = {},
+    speakerKeys = {},
 }
 
 function Booths.Get(id)
@@ -14,6 +15,22 @@ function Booths.ClearProps()
         end
         Booths.objects[id] = nil
     end
+    Booths.speakerKeys = {}
+end
+
+local function despawnSpeakerKeys(boothId)
+    local keys = Booths.speakerKeys[boothId]
+    if not keys then
+        return
+    end
+    for i = 1, #keys do
+        local handle = Booths.objects[keys[i]]
+        if handle and DoesEntityExist(handle) then
+            DeleteObject(handle)
+        end
+        Booths.objects[keys[i]] = nil
+    end
+    Booths.speakerKeys[boothId] = nil
 end
 
 function Booths.Spawn(booth)
@@ -21,19 +38,11 @@ function Booths.Spawn(booth)
     if existing and DoesEntityExist(existing) then
         DeleteObject(existing)
     end
-
-    for key, handle in pairs(Booths.objects) do
-        if type(key) == 'string' and key:find(booth.id .. '_spk_', 1, true) then
-            if DoesEntityExist(handle) then
-                DeleteObject(handle)
-            end
-            Booths.objects[key] = nil
-        end
-    end
+    despawnSpeakerKeys(booth.id)
 
     local hash, modelName = Props.LoadFirst(Props.Fallbacks(booth.model or Config.DefaultModel))
     if not hash then
-        print(('[lumina-dj] Could not load booth model %s'):format(tostring(booth.model)))
+        print(('[djbooth] Could not load booth model %s'):format(tostring(booth.model)))
         return
     end
     booth.model = modelName or booth.model
@@ -46,23 +55,22 @@ function Booths.Spawn(booth)
     end
     Booths.objects[booth.id] = obj
 
+    local keys = {}
     if booth.speakers then
         for i = 1, #booth.speakers do
             local key = booth.id .. '_spk_' .. i
-            local old = Booths.objects[key]
-            if old and DoesEntityExist(old) then
-                DeleteObject(old)
-            end
             local speakerHash = Props.LoadFirst(Props.Fallbacks(booth.speakers[i].model or Config.SpeakerModel))
             if speakerHash then
                 local speaker = Props.CreateFrozen(speakerHash, booth.speakers[i], booth.speakers[i].heading)
                 if speaker then
                     Booths.objects[key] = speaker
+                    keys[#keys + 1] = key
                 end
                 SetModelAsNoLongerNeeded(speakerHash)
             end
         end
     end
+    Booths.speakerKeys[booth.id] = keys
 end
 
 function Booths.Despawn(id)
@@ -71,37 +79,33 @@ function Booths.Despawn(id)
         DeleteObject(handle)
     end
     Booths.objects[id] = nil
-
-    for key, obj in pairs(Booths.objects) do
-        if type(key) == 'string' and key:find(id .. '_spk_', 1, true) then
-            if DoesEntityExist(obj) then
-                DeleteObject(obj)
-            end
-            Booths.objects[key] = nil
-        end
-    end
+    despawnSpeakerKeys(id)
 end
 
 function Booths.SyncAll(list)
     local keep = {}
-    Booths.list = {}
-    for i = 1, #list do
+    local incoming = {}
+    for i = 1, #(list or {}) do
         local booth = list[i]
-        Booths.list[booth.id] = booth
+        incoming[booth.id] = booth
         keep[booth.id] = true
+    end
+
+    for id in pairs(Booths.list) do
+        if not keep[id] then
+            Booths.list[id] = nil
+            Booths.Despawn(id)
+            Interact.Remove(id)
+            Audio.Stop(id)
+        end
+    end
+
+    for id, booth in pairs(incoming) do
+        Booths.list[id] = booth
         Booths.Spawn(booth)
         Interact.Register(booth)
         if booth.state then
             Audio.Apply(booth, booth.state)
-        end
-    end
-
-    for id in pairs(Booths.objects) do
-        local boothId = tostring(id):match('^(.-)_spk_') or id
-        if not keep[boothId] then
-            Booths.Despawn(id)
-            Interact.Remove(boothId)
-            Audio.Stop(boothId)
         end
     end
 end
@@ -165,6 +169,22 @@ RegisterNetEvent('djbooth:audioState', function(boothId, state)
     end
 end)
 
+RegisterNetEvent('djbooth:audioTick', function(boothId, tick)
+    tick = tick or {}
+    local booth = Booths.Get(boothId)
+    if booth and booth.state then
+        booth.state.elapsed = tick.elapsed or booth.state.elapsed
+        booth.state.duration = tick.duration or booth.state.duration
+        if tick.paused ~= nil then
+            booth.state.paused = tick.paused and true or false
+        end
+    end
+    Audio.Tick(boothId, tick)
+    if Nui.open and Nui.boothId == boothId then
+        Nui.Send('progress', { elapsed = tick.elapsed or 0, duration = tick.duration or 0 })
+    end
+end)
+
 RegisterNetEvent('djbooth:openBoothUi', function(payload)
     Nui.OpenBooth(payload)
 end)
@@ -221,23 +241,26 @@ CreateThread(function()
         if Config.ShowNowPlayingText then
             local ped = PlayerPedId()
             local pos = GetEntityCoords(ped)
-            for id, booth in pairs(Booths.list) do
+            local maxDist = Config.NowPlayingTextDistance
+            for _, booth in pairs(Booths.list) do
                 local state = booth.state
                 if state and state.current and not state.paused then
                     local coords = DJ.ToVector3(booth.coords)
                     local dist = #(pos - coords)
-                    if dist < Config.NowPlayingTextDistance then
-                        sleep = 0
+                    if dist < maxDist then
                         local onScreen, x, y = World3dToScreen2d(coords.x, coords.y, coords.z + 1.15)
                         if onScreen then
+                            sleep = 0
                             SetTextScale(0.28, 0.28)
                             SetTextFont(4)
                             SetTextCentre(true)
-                            SetTextColour(18, 22, 30, 230)
+                            SetTextColour(240, 213, 108, 230)
                             SetTextOutline()
                             BeginTextCommandDisplayText('STRING')
                             AddTextComponentSubstringPlayerName(('♪  %s'):format(state.current.title or 'Now Playing'))
                             EndTextCommandDisplayText(x, y)
+                        elseif sleep > 150 then
+                            sleep = 150
                         end
                     end
                 end
@@ -289,6 +312,9 @@ RegisterCommand(Config.OpenCommand, function()
         Framework.Notify(Config.Locale.nearest_none, 'error')
     end
 end, false)
+
+TriggerEvent('chat:addSuggestion', '/' .. Config.AdminCommand, 'Open Rebel Roleplay DJ booth admin (place / edit booths)')
+TriggerEvent('chat:addSuggestion', '/' .. Config.OpenCommand, 'Open the nearest DJ booth you can use')
 
 exports('OpenBooth', OpenBooth)
 exports('GetBooths', function()

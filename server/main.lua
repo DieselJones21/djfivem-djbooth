@@ -925,7 +925,12 @@ CreateThread(function()
         Wait(Config.AudioHeartbeatMs or 8000)
         for boothId, state in pairs(States) do
             if state.current and not state.paused then
-                broadcastAudio(boothId)
+                TriggerClientEvent('djbooth:audioTick', -1, boothId, {
+                    elapsed = elapsedOf(state),
+                    duration = state.duration or 0,
+                    playToken = state.playToken,
+                    paused = false,
+                })
             end
         end
     end

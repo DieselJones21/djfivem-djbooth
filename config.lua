@@ -1,8 +1,8 @@
 Config = {}
 
 -- Display name shown in the tablet UI
-Config.AppName = 'DJ FIVEM'
-Config.AppTagline = 'Booth OS'
+Config.AppName = 'Rebel Roleplay'
+Config.AppTagline = 'DJ Booth'
 
 --[[
     Framework
@@ -14,7 +14,7 @@ Config.AppTagline = 'Booth OS'
 ]]
 Config.Framework = 'auto'
 
--- ACE permission used by /djadmin and booth management
+-- ACE permission used by /boothadmin and booth management
 Config.AdminAce = 'djbooth.admin'
 
 -- Extra identifiers (license:, discord:, fivem:) that always have admin
@@ -29,7 +29,8 @@ Config.QBAdminPermissions = { 'god', 'admin' }
 Config.ESXAdminGroups = { 'admin', 'superadmin', 'god' }
 
 -- Command to place / edit / delete booths
-Config.AdminCommand = 'djadmin'
+-- Named boothadmin so it does not clash with script managers that already use /djadmin
+Config.AdminCommand = 'boothadmin'
 
 -- Optional alias that opens the nearest booth you can use
 Config.OpenCommand = 'dj'
@@ -164,12 +165,12 @@ Config.Placement = {
 }
 
 Config.Notify = {
-    prefix = 'DJ FIVEM',
+    prefix = 'Rebel Roleplay',
 }
 
 Config.Locale = {
     no_permission = 'You do not have permission to do that.',
-    no_xsound = 'xsound is not running. Start it before DJ FIVEM.',
+    no_xsound = 'xsound is not running. Start it before Rebel Roleplay DJ Booth.',
     booth_open_denied = 'You cannot use this booth.',
     booth_missing = 'That booth no longer exists.',
     invalid_url = 'Paste a YouTube link or a direct HTTPS audio URL.',

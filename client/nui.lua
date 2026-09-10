@@ -51,6 +51,7 @@ function Nui.OpenBooth(payload)
     Nui.Focus()
     payload.appName = Config.AppName
     payload.appTagline = Config.AppTagline
+    payload.adminCommand = Config.AdminCommand
     payload.locale = Config.Locale
     payload.limits = {
         maxVolume = Config.MaxVolume,
@@ -67,6 +68,7 @@ function Nui.OpenAdmin(payload)
         Nui.expectOpenUntil = 0
         Nui.Focus()
         payload.appName = Config.AppName
+        payload.adminCommand = Config.AdminCommand
         payload.models = Config.Models
         payload.defaultModel = Config.DefaultModel
         payload.speakerModel = Config.SpeakerModel
@@ -86,6 +88,7 @@ function Nui.OpenSpeaker(payload)
     Nui.Focus()
     payload.appName = Config.AppName
     payload.appTagline = Config.AppTagline
+    payload.adminCommand = Config.AdminCommand
     payload.limits = {
         maxVolume = Config.MaxVolume,
         minRadius = (payload.speaker and payload.speaker.minRadius) or 4.0,
@@ -100,6 +103,7 @@ function Nui.OpenCreate(draft)
     Nui.Focus()
     Nui.Send('openCreate', {
         appName = Config.AppName,
+        adminCommand = Config.AdminCommand,
         draft = draft,
         models = Config.Models,
     })

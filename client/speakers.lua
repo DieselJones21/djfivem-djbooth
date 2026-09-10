@@ -231,6 +231,16 @@ RegisterNetEvent('djbooth:speakerAudio', function(groupId, members, state)
     end
 end)
 
+RegisterNetEvent('djbooth:speakerTick', function(groupId, tick)
+    Audio.Tick('spk_' .. tostring(groupId), tick or {})
+    if Nui.open and Nui.mode == 'speaker' then
+        Nui.Send('progress', {
+            elapsed = tick and tick.elapsed or 0,
+            duration = tick and tick.duration or 0,
+        })
+    end
+end)
+
 RegisterNetEvent('djbooth:openSpeakerUi', function(payload)
     Nui.OpenSpeaker(payload)
 end)

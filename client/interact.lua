@@ -227,9 +227,11 @@ CreateThread(function()
         for boothId, zone in pairs(Interact.native) do
             local dist = #(pos - zone.coords)
             if dist < 12.0 then
-                sleep = 0
                 if dist < Config.Interact.nativeDistance + 1.5 then
+                    sleep = 0
                     drawText3d(zone.coords, ('[E]  %s'):format(zone.label))
+                elseif sleep > 120 then
+                    sleep = 120
                 end
                 if not closestDist or dist < closestDist then
                     closest = zone
