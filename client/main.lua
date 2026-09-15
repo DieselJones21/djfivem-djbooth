@@ -254,7 +254,7 @@ CreateThread(function()
                             SetTextScale(0.28, 0.28)
                             SetTextFont(4)
                             SetTextCentre(true)
-                            SetTextColour(240, 213, 108, 230)
+                            SetTextColour(255, 106, 213, 230)
                             SetTextOutline()
                             BeginTextCommandDisplayText('STRING')
                             AddTextComponentSubstringPlayerName(('♪  %s'):format(state.current.title or 'Now Playing'))
@@ -313,7 +313,7 @@ RegisterCommand(Config.OpenCommand, function()
     end
 end, false)
 
-TriggerEvent('chat:addSuggestion', '/' .. Config.AdminCommand, 'Open Rebel Roleplay DJ booth admin (place / edit booths)')
+TriggerEvent('chat:addSuggestion', '/' .. Config.AdminCommand, 'Open The 305 DJ booth admin (place / edit booths)')
 TriggerEvent('chat:addSuggestion', '/' .. Config.OpenCommand, 'Open the nearest DJ booth you can use')
 
 exports('OpenBooth', OpenBooth)
