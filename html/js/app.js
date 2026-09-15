@@ -27,8 +27,8 @@
 
     const state = {
         tab: 'now',
-        appName: 'Rebel Roleplay',
-        appTagline: 'DJ Booth',
+        appName: 'The 305',
+        appTagline: 'Miami nights',
         adminCommand: 'boothadmin',
         booth: null,
         playback: emptyPlayback(),
@@ -65,7 +65,7 @@
     const PREVIEW = {
         booth: {
             id: 'preview',
-            name: 'Vanilla Unicorn',
+            name: 'Ocean Drive',
             radius: 48,
             volume: 0.72,
             jobs: [{ name: 'unemployed', grade: 0 }],
@@ -104,8 +104,8 @@
             ]},
         ],
         booths: [
-            { id: 'preview', name: 'Vanilla Unicorn', jobs: [{ name: 'unemployed', grade: 0 }], radius: 48, coords: { x: 127.2, y: -1283.4, z: 29.2 }, speakers: [{}, {}], model: 'prop_speaker_07' },
-            { id: 'b2', name: 'Bahama Mamas', jobs: [], radius: 36, coords: { x: -1388.0, y: -586.4, z: 30.2 }, speakers: [], model: 'prop_speaker_07' },
+            { id: 'preview', name: 'Ocean Drive', jobs: [{ name: 'unemployed', grade: 0 }], radius: 48, coords: { x: 127.2, y: -1283.4, z: 29.2 }, speakers: [{}, {}], model: 'prop_speaker_07' },
+            { id: 'b2', name: 'Yacht Party', jobs: [], radius: 36, coords: { x: -1388.0, y: -586.4, z: 30.2 }, speakers: [], model: 'prop_speaker_07' },
         ],
         models: [
             { model: 'prop_speaker_07', label: 'Tall Speaker' },
@@ -358,7 +358,7 @@
                 <div>
                     <p class="eyebrow">Session</p>
                     <h1>Now Playing</h1>
-                    <p>Paste a YouTube link and run the room from this deck.</p>
+                    <p>Drop a YouTube link and light up the 305.</p>
                 </div>
             </div>
             <div class="hero">
@@ -709,7 +709,7 @@
                     ${cover(cur || { title: 'Idle' })}
                     <div>
                         <h4>${esc(cur?.title || 'Idle')}</h4>
-                        <p id="nowMiniTime">${esc(cur?.author || 'Rebel Roleplay')} · ${fmt(state.playback.elapsed)} / ${fmt(state.playback.duration)}</p>
+                        <p id="nowMiniTime">${esc(cur?.author || 'The 305')} · ${fmt(state.playback.elapsed)} / ${fmt(state.playback.duration)}</p>
                     </div>
                 </div>
                 <div class="transport">
@@ -921,7 +921,7 @@
         if (durationEl) durationEl.textContent = fmt(duration);
         const miniTime = document.getElementById('nowMiniTime');
         if (miniTime) {
-            miniTime.textContent = `${state.playback.current?.author || 'Rebel Roleplay'} · ${fmt(elapsed)} / ${fmt(duration)}`;
+            miniTime.textContent = `${state.playback.current?.author || 'The 305'} · ${fmt(elapsed)} / ${fmt(duration)}`;
         }
     }
 
@@ -953,8 +953,8 @@
 
     function applySpeaker(payload) {
         state.mode = 'speaker';
-        state.appName = payload.appName || 'Rebel Roleplay';
-        state.appTagline = payload.appTagline || 'DJ Booth';
+        state.appName = payload.appName || 'The 305';
+        state.appTagline = payload.appTagline || 'Miami nights';
         state.adminCommand = payload.adminCommand || state.adminCommand || 'boothadmin';
         state.speaker = payload.speaker;
         state.playback = Object.assign(emptyPlayback(), payload.speaker?.state || payload.state || {});
@@ -974,8 +974,8 @@
 
     function applyBoothPayload(payload) {
         state.mode = 'booth';
-        state.appName = payload.appName || 'Rebel Roleplay';
-        state.appTagline = payload.appTagline || 'DJ Booth';
+        state.appName = payload.appName || 'The 305';
+        state.appTagline = payload.appTagline || 'Miami nights';
         state.adminCommand = payload.adminCommand || state.adminCommand || 'boothadmin';
         state.booth = payload.booth;
         state.speaker = null;
@@ -992,7 +992,7 @@
 
     function applyAdmin(payload) {
         state.mode = 'admin';
-        state.appName = payload.appName || 'Rebel Roleplay';
+        state.appName = payload.appName || 'The 305';
         state.adminCommand = payload.adminCommand || state.adminCommand || 'boothadmin';
         state.booths = payload.booths || [];
         state.models = payload.models || state.models;
@@ -1031,7 +1031,7 @@
             state.mode = 'create';
             state.draft = payload?.draft || {};
             state.models = payload?.models || state.models;
-            state.appName = payload?.appName || 'Rebel Roleplay';
+            state.appName = payload?.appName || 'The 305';
             state.adminCommand = payload?.adminCommand || state.adminCommand || 'boothadmin';
             state.tab = 'create';
             showStage();
@@ -1081,8 +1081,8 @@
         $('previewBar').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
         if (btn.dataset.preview === 'booth') {
             applyBoothPayload({
-                appName: 'Rebel Roleplay',
-                appTagline: 'DJ Booth',
+                appName: 'The 305',
+                appTagline: 'Miami nights',
                 adminCommand: 'boothadmin',
                 booth: PREVIEW.booth,
                 state: PREVIEW.playback,
@@ -1093,12 +1093,12 @@
             });
         }
         if (btn.dataset.preview === 'admin') {
-            applyAdmin({ appName: 'Rebel Roleplay', adminCommand: 'boothadmin', booths: PREVIEW.booths, models: PREVIEW.models });
+            applyAdmin({ appName: 'The 305', adminCommand: 'boothadmin', booths: PREVIEW.booths, models: PREVIEW.models });
         }
         if (btn.dataset.preview === 'speaker') {
             applySpeaker({
-                appName: 'Rebel Roleplay',
-                appTagline: 'DJ Booth',
+                appName: 'The 305',
+                appTagline: 'Miami nights',
                 adminCommand: 'boothadmin',
                 speaker: {
                     id: 'spk1',
@@ -1143,11 +1143,11 @@
             b.classList.toggle('active', b.dataset.preview === view);
         });
         if (view === 'admin') {
-            applyAdmin({ appName: 'Rebel Roleplay', adminCommand: 'boothadmin', booths: PREVIEW.booths, models: PREVIEW.models });
+            applyAdmin({ appName: 'The 305', adminCommand: 'boothadmin', booths: PREVIEW.booths, models: PREVIEW.models });
         } else if (view === 'speaker' || view === 'speakerMixer' || view === 'speakerGroup') {
             applySpeaker({
-                appName: 'Rebel Roleplay',
-                appTagline: 'DJ Booth',
+                appName: 'The 305',
+                appTagline: 'Miami nights',
                 adminCommand: 'boothadmin',
                 speaker: {
                     id: 'spk1',
@@ -1181,8 +1181,8 @@
             render();
         } else {
             applyBoothPayload({
-                appName: 'Rebel Roleplay',
-                appTagline: 'DJ Booth',
+                appName: 'The 305',
+                appTagline: 'Miami nights',
                 adminCommand: 'boothadmin',
                 booth: PREVIEW.booth,
                 state: PREVIEW.playback,

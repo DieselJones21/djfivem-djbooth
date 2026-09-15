@@ -1,8 +1,8 @@
 Config = {}
 
 -- Display name shown in the tablet UI
-Config.AppName = 'Rebel Roleplay'
-Config.AppTagline = 'DJ Booth'
+Config.AppName = 'The 305'
+Config.AppTagline = 'Miami nights'
 
 --[[
     Framework
@@ -165,12 +165,12 @@ Config.Placement = {
 }
 
 Config.Notify = {
-    prefix = 'Rebel Roleplay',
+    prefix = 'The 305',
 }
 
 Config.Locale = {
     no_permission = 'You do not have permission to do that.',
-    no_xsound = 'xsound is not running. Start it before Rebel Roleplay DJ Booth.',
+    no_xsound = 'xsound is not running. Start it before The 305 DJ Booth.',
     booth_open_denied = 'You cannot use this booth.',
     booth_missing = 'That booth no longer exists.',
     invalid_url = 'Paste a YouTube link or a direct HTTPS audio URL.',

@@ -1,6 +1,6 @@
-# Rebel Roleplay DJ Booth
+# The 305 DJ Booth
 
-A FiveM DJ booth resource with a chrome + crimson Rebel Roleplay tablet UI, YouTube playback through [xsound](https://github.com/Xogy/xsound), saved songs, playlists, portable speakers, and in-game placement.
+A FiveM DJ booth resource with a Miami nightclub tablet UI (chrome + magenta The 305 branding), YouTube playback through [xsound](https://github.com/Xogy/xsound), saved songs, playlists, portable speakers, and in-game placement.
 
 ## Features
 
@@ -15,7 +15,7 @@ A FiveM DJ booth resource with a chrome + crimson Rebel Roleplay tablet UI, YouT
 - **`/boothadmin`** — walk-up placement, job locks, teleport, edit, delete, add speakers (not `/djadmin`, so it will not clash with script managers)
 - **`/dj`** — open the nearest booth you can use
 - **QBCore, Qbox, ESX, or standalone** — auto-detected
-- **Rebel Roleplay tablet UI** — chrome lettering, crimson/gold accents, cowboy branding
+- **The 305 tablet UI** — magenta/cyan Miami neon, chrome logo, palm-night backdrop
 
 ## Dependencies
 
